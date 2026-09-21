@@ -1,6 +1,13 @@
 // Sincronización entre celulares con Firebase (Firestore + login anónimo).
 // Los datos de un hogar viven en hogares/{codigo}; quien tiene el código tiene acceso.
-const FIREBASE_CONFIG = null; // ← pegar acá el firebaseConfig del proyecto
+const FIREBASE_CONFIG = {
+  apiKey: 'AIzaSyBwcSiOuP96tbHSfHH2PETFx29wRV26Zk0',
+  authDomain: 'finanzas-hogar-f7b51.firebaseapp.com',
+  projectId: 'finanzas-hogar-f7b51',
+  storageBucket: 'finanzas-hogar-f7b51.firebasestorage.app',
+  messagingSenderId: '319497039110',
+  appId: '1:319497039110:web:518af6c16393a0ba9e4287',
+};
 
 const V = '12.19.0';
 const COLS = ['movs', 'pmovs', 'prestamos', 'metas'];
