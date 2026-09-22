@@ -11,6 +11,7 @@ export default defineConfig({
     preact(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: null, // se registra desde src/lib/actualizar.ts
       includeAssets: ['icon.svg', 'privacidad.html', 'terminos.html', 'instructivo.html'],
       manifest: {
         name: 'Finanzas',

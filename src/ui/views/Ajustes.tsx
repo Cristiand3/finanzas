@@ -1,4 +1,5 @@
 import { useRef, useState } from 'preact/hooks';
+import { buscando, buscarActualizacion } from '../../lib/actualizar';
 import { lineasDelMes, todayISO } from '../../lib/calc';
 
 import {
@@ -125,7 +126,13 @@ export function Ajustes() {
         <a class="row" style={{ color: 'inherit', textDecoration: 'none' }} href={`${BASE}terminos.html`} target="_blank"><span>Términos y condiciones</span><span>↗</span></a>
         <button class="btn danger" style={{ marginTop: 10 }} disabled={busy} onClick={borrarCuenta}>Eliminar mi cuenta</button>
       </div>
-      <p class="hint" style={{ textAlign: 'center' }}>Finanzas v{__APP_VERSION__} · {movs.value.length} movimientos</p>
+      <p class="hint" style={{ textAlign: 'center', marginBottom: 4 }}>Finanzas v{__APP_VERSION__} · {movs.value.length} movimientos</p>
+      <div style={{ textAlign: 'center' }}>
+        <button class="link" disabled={buscando.value} onClick={async () => {
+          const hay = await buscarActualizacion();
+          toast(hay ? 'Actualizando…' : 'Ya tenés la última versión');
+        }}>{buscando.value ? 'Buscando…' : 'Buscar actualización'}</button>
+      </div>
     </>
   );
 }
