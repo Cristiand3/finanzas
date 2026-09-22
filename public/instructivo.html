@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cómo usar Finanzas</title>
+<meta name="description" content="Instructivo para probar la app Finanzas: instalarla, cargar gastos e invitar a tu pareja.">
+<meta name="theme-color" content="#0f766e">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+:root{--bg:#f3f6f5;--card:#fff;--ink:#14201c;--muted:#62716c;--line:#e1e8e5;--brand:#0f766e;--brand-ink:#fff;--brand-soft:#dcf2ed}
+@media (prefers-color-scheme:dark){:root{--bg:#0c1311;--card:#151f1c;--ink:#e6eeeb;--muted:#92a39d;--line:#24312d;--brand:#2dd4bf;--brand-ink:#04211e;--brand-soft:#113a34}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:640px;margin:0 auto;padding:28px 16px 48px}
+header{display:flex;gap:14px;align-items:center;margin-bottom:6px}
+header img{width:56px;height:56px;border-radius:16px}
+h1{font-size:28px;line-height:1.15;margin:0;letter-spacing:-.02em}
+.lead{color:var(--muted);font-size:17px;margin:10px 0 22px}
+.cta{display:block;text-align:center;background:var(--brand);color:var(--brand-ink);text-decoration:none;font-weight:700;padding:14px;border-radius:14px;margin:0 0 26px}
+.step{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px 16px 12px;margin:12px 0}
+.step h2{font-size:18px;margin:0 0 8px;display:flex;gap:10px;align-items:center}
+.n{flex:none;width:28px;height:28px;border-radius:50%;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-size:15px}
+.step p,.step ul{margin:6px 0}
+.step ul{padding-left:20px}
+.step li{margin:4px 0}
+.os{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+.os div{background:var(--bg);border-radius:12px;padding:10px 12px;font-size:15px}
+.os b{display:block;margin-bottom:2px}
+.tip{background:var(--brand-soft);border-radius:12px;padding:10px 12px;font-size:15px;margin:10px 0 4px}
+h3{font-size:20px;margin:30px 0 8px}
+.qs li{margin:6px 0}
+.muted{color:var(--muted);font-size:14px}
+kbd{font:inherit;font-weight:700;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:0 6px}
+@media (max-width:420px){.os{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="icon-192.png" alt="">
+    <h1>Cómo usar Finanzas</h1>
+  </header>
+  <p class="lead">Gracias por ayudarme a probarla 🙌. Es una app para anotar gastos, cuotas y ahorros, sola/o o en pareja. Configurarla lleva 5 minutos.</p>
+
+  <a class="cta" href="./">Abrir Finanzas</a>
+
+  <section class="step">
+    <h2><span class="n">1</span> Instalala en el celular</h2>
+    <p>Abrí el enlace de arriba y agregala a la pantalla de inicio. Queda con su ícono, como cualquier app:</p>
+    <div class="os">
+      <div><b>Android (Chrome)</b>Tocá los <kbd>⋮</kbd> de arriba a la derecha → <b style="display:inline">Instalar app</b> o <b style="display:inline">Agregar a pantalla principal</b>.</div>
+      <div><b>iPhone (Safari)</b>Tocá <kbd>Compartir</kbd> (el cuadrado con la flecha) → <b style="display:inline">Agregar a pantalla de inicio</b>.</div>
+    </div>
+    <p class="muted">En iPhone tiene que ser desde Safari, no desde Chrome.</p>
+  </section>
+
+  <section class="step">
+    <h2><span class="n">2</span> Creá tu cuenta</h2>
+    <p>Entrá con <b>Google</b> (lo más fácil) o con tu email y una contraseña.</p>
+    <p>Después elegí si la vas a usar <b>en pareja</b> o <b>sola/o</b> y poné los nombres. Se crea tu propio espacio, vacío: nadie más ve tus datos.</p>
+  </section>
+
+  <section class="step">
+    <h2><span class="n">3</span> <span>Cargá tus gastos con el botón <kbd>+</kbd></span></h2>
+    <ul>
+      <li>Escribí el monto, elegí la categoría y tocá <b>Guardar</b>. Listo.</li>
+      <li><b>Ingresos y ahorro:</b> arriba del formulario cambiás entre <i>Gasto</i>, <i>Ingreso</i> y <i>Ahorro</i>.</li>
+      <li><b>Compras en cuotas:</b> poné el total y la cantidad de cuotas. La app cuenta cada mes solo la cuota que corresponde y te muestra cuánto te falta pagar.</li>
+      <li><b>Dólares:</b> al lado del monto elegí <b>US$</b>. La cotización del día se completa sola.</li>
+    </ul>
+    <p class="tip">💡 Tocá cualquier movimiento de la lista para editarlo o borrarlo.</p>
+  </section>
+
+  <section class="step">
+    <h2><span class="n">4</span> Invitá a tu pareja (opcional)</h2>
+    <p>Andá a <b>Cuenta → Invitar a mi pareja</b> y mandale el enlace por WhatsApp. Cuando lo abra, van a ver y cargar lo mismo desde los dos celulares, en tiempo real.</p>
+    <p class="tip">🔒 Ese enlace da acceso a tus datos: mandalo solo a tu pareja. Si lo compartiste por error, tocá <b>Nuevo enlace</b> y el anterior deja de funcionar.</p>
+  </section>
+
+  <section class="step">
+    <h2><span class="n">5</span> Explorá el resto</h2>
+    <ul>
+      <li><b>Inicio:</b> cuánto te queda libre en el mes y en qué se va la plata.</li>
+      <li><b>Metas:</b> cuánto llevás ahorrado para las vacaciones, un fondo de emergencia, etc.</li>
+      <li><b>Deudas:</b> tus compras en cuotas y tus préstamos, con lo que falta pagar.</li>
+    </ul>
+  </section>
+
+  <h3>¿Qué te pido?</h3>
+  <p>Que la uses <b>durante 2 semanas</b> y cargues <b>todos</b> tus gastos, aunque sean chicos. Después contame por WhatsApp:</p>
+  <ol class="qs">
+    <li>¿Cargar un gasto te resultó rápido o te dio fiaca?</li>
+    <li>¿Hubo algo que buscaste y no encontraste?</li>
+    <li>¿Algo te confundió o te pareció que andaba mal?</li>
+    <li>¿La seguirías usando? ¿Qué le agregarías?</li>
+    <li>¿Pagarías por ella? ¿Cuánto por mes te parecería razonable?</li>
+  </ol>
+  <p>Todo sirve: lo que no te gustó me ayuda más que lo que sí 😉.</p>
+
+  <h3>Bueno saber</h3>
+  <ul class="qs">
+    <li>Es una <b>versión de prueba</b>: puede tener algún error. Si algo falla, mandame una captura de pantalla.</li>
+    <li>Tus datos son <b>privados</b>: se guardan en tu cuenta y solo los ven las personas que invites.</li>
+    <li>Funciona <b>sin internet</b>: lo que cargues se sincroniza cuando vuelve la conexión.</li>
+    <li>Podés descargar tus datos o borrar tu cuenta cuando quieras desde <b>Cuenta</b>.</li>
+  </ul>
+  <p class="muted"><a href="privacidad.html">Política de privacidad</a> · <a href="terminos.html">Términos</a></p>
+</main>
+</body>
+</html>

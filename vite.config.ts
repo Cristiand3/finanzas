@@ -11,7 +11,7 @@ export default defineConfig({
     preact(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg', 'privacidad.html', 'terminos.html'],
+      includeAssets: ['icon.svg', 'privacidad.html', 'terminos.html', 'instructivo.html'],
       manifest: {
         name: 'Finanzas',
         short_name: 'Finanzas',
@@ -27,7 +27,7 @@ export default defineConfig({
           { src: 'icon-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
-      workbox: { navigateFallbackDenylist: [/privacidad|terminos/] },
+      workbox: { navigateFallbackDenylist: [/privacidad|terminos|instructivo/] },
     }),
   ],
   build: { chunkSizeWarningLimit: 900 },
