@@ -32,3 +32,26 @@ export const dayName = (iso: string) => {
   const [y, m, d] = iso.split('-').map(Number);
   return cap(new Date(y, m - 1, d).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'short' }));
 };
+
+/** Va poniendo los puntos de miles mientras se escribe: "45300" → "45.300". */
+export function formatMiles(raw: string): string {
+  const negativo = /^\s*-/.test(raw);
+  const limpio = raw.replace(/[^\d,]/g, '');
+  const partes = limpio.split(',');
+  const entero = partes[0].replace(/^0+(?=\d)/, '');
+  const conPuntos = entero.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const decimales = partes.length > 1 ? ',' + partes.slice(1).join('').slice(0, 2) : '';
+  return (negativo ? '-' : '') + conPuntos + decimales;
+}
+
+/** Cuenta los caracteres que el cursor "ve" (dígitos y coma), para no moverlo al reformatear. */
+export const contarDigitos = (s: string) => (s.match(/[\d,]/g) || []).length;
+
+export function posicionDelCursor(texto: string, digitos: number): number {
+  if (digitos <= 0) return /^-/.test(texto) ? 1 : 0;
+  let vistos = 0;
+  for (let i = 0; i < texto.length; i++) {
+    if (/[\d,]/.test(texto[i]) && ++vistos === digitos) return i + 1;
+  }
+  return texto.length;
+}

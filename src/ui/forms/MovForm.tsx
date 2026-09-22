@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { shiftMonth, todayISO, ym } from '../../lib/calc';
-import { fmt, monthName, parseAmt } from '../../lib/format';
+import { fmt, formatMiles, monthName, parseAmt } from '../../lib/format';
 import { CAT_ICON, MONEDAS, MONEDA_IDS, type Moneda, type Mov, type TipoMov } from '../../lib/model';
 import { borrar, guardar, hogar, metas, miPersona, newId, toast } from '../../lib/store';
-import { Field, Seg } from '../common';
+import { Field, MontoInput, Seg } from '../common';
 import { closeSheet, mes } from '../state';
 
 const CUOTAS = [1, 2, 3, 4, 6, 9, 10, 12, 18, 24];
@@ -18,7 +18,7 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
   };
   const [m, setM] = useState<Mov>(init);
   const nuevo = !m.id; // también al duplicar
-  const [montoTxt, setMontoTxt] = useState(mov ? String(mov.monto).replace('.', ',') : '');
+  const [montoTxt, setMontoTxt] = useState(mov ? formatMiles(String(mov.monto).replace('.', ',')) : '');
   const set = (p: Partial<Mov>) => setM(x => ({ ...x, ...p }));
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { if (!mov) setTimeout(() => ref.current?.focus(), 250); }, []);
@@ -64,7 +64,7 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
 
       <Field label={cuotas > 1 ? 'Monto total de la compra' : 'Monto'}>
         <div class="amountbox">
-          <input ref={ref} class="inp amount" inputmode="decimal" placeholder="0" value={montoTxt} onInput={e => setMontoTxt(e.currentTarget.value)} autocomplete="off" />
+          <MontoInput inputRef={ref} class="amount" placeholder="0" value={montoTxt} onValue={setMontoTxt} autocomplete="off" />
           <select class="inp cur" aria-label="Moneda" value={m.moneda} onChange={e => set({ moneda: e.currentTarget.value as Moneda })}>
             {MONEDA_IDS.map(c => <option value={c}>{MONEDAS[c].simbolo}</option>)}
           </select>

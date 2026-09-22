@@ -1,9 +1,9 @@
 import { useState } from 'preact/hooks';
 import { prestamoCalc, todayISO } from '../../lib/calc';
-import { fmt, parseAmt } from '../../lib/format';
+import { fmt, formatMiles, parseAmt } from '../../lib/format';
 import { MONEDAS, MONEDA_IDS, type Hogar, type Meta, type Moneda, type Pmov, type Prestamo, type TipoPmov } from '../../lib/model';
 import { actualizarHogar, borrar, guardar, hogar, miPersona, movs, newId, pmovs, prestamos, setPersona, toast } from '../../lib/store';
-import { Field, Seg, SheetFooter } from '../common';
+import { Field, MontoInput, Seg, SheetFooter } from '../common';
 import { closeSheet, mes, openSheet } from '../state';
 import { MovForm } from './MovForm';
 
@@ -14,7 +14,7 @@ export function MetaForm({ meta }: { meta?: Meta }) {
   const [objs, setObjs] = useState<Partial<Record<Moneda, string>>>(() => {
     const o = meta?.objetivos || {};
     const out: Partial<Record<Moneda, string>> = {};
-    for (const c of MONEDA_IDS) if (o[c]) out[c] = String(o[c]);
+    for (const c of MONEDA_IDS) if (o[c]) out[c] = formatMiles(String(o[c]));
     return Object.keys(out).length ? out : { ARS: '' };
   });
   const usadas = MONEDA_IDS.filter(c => objs[c] !== undefined);
@@ -39,7 +39,7 @@ export function MetaForm({ meta }: { meta?: Meta }) {
       {usadas.map(c => (
         <div class="row" style={{ borderBottom: 0, paddingTop: 4 }}>
           <span class="pill" style={{ minWidth: 58, textAlign: 'center' }}>{MONEDAS[c].simbolo}</span>
-          <input class="inp" inputmode="decimal" style={{ flex: 1 }} value={objs[c]} placeholder={`Cuánto querés juntar en ${MONEDAS[c].nombre.toLowerCase()}`} onInput={e => setObj(c, e.currentTarget.value)} />
+          <MontoInput class="" value={objs[c] || ''} onValue={v => setObj(c, v)} placeholder={`Cuánto querés juntar en ${MONEDAS[c].nombre.toLowerCase()}`} />
           {usadas.length > 1 && <button type="button" class="iconbtn" aria-label="Quitar" onClick={() => quitar(c)}>✕</button>}
         </div>
       ))}
@@ -69,9 +69,9 @@ export function MetaForm({ meta }: { meta?: Meta }) {
 export function PrestamoForm({ p }: { p?: Prestamo }) {
   const h = hogar.value!;
   const [f, setF] = useState({
-    nombre: p?.nombre || '', persona: p?.persona || 'Ambos', original: p?.original ? String(p.original) : '',
+    nombre: p?.nombre || '', persona: p?.persona || 'Ambos', original: p?.original ? formatMiles(String(p.original)) : '',
     moneda: (p?.moneda || 'ARS') as Moneda, cuotasTotales: p?.cuotasTotales ? String(p.cuotasTotales) : '',
-    cuota: p?.cuota ? String(p.cuota) : '', fin: p?.fin || '',
+    cuota: p?.cuota ? formatMiles(String(p.cuota)) : '', fin: p?.fin || '',
   });
   const set = (x: Partial<typeof f>) => setF(v => ({ ...v, ...x }));
   const save = (e: Event) => {
@@ -100,10 +100,10 @@ export function PrestamoForm({ p }: { p?: Prestamo }) {
           </select>
         </Field>
       </div>
-      <Field label="Monto total a devolver"><input class="inp" inputmode="decimal" value={f.original} onInput={e => set({ original: e.currentTarget.value })} /></Field>
+      <Field label="Monto total a devolver"><MontoInput value={f.original} onValue={v => set({ original: v })} /></Field>
       <div class="grid2">
         <Field label="Cantidad de cuotas"><input class="inp" inputmode="numeric" value={f.cuotasTotales} onInput={e => set({ cuotasTotales: e.currentTarget.value })} placeholder="Vacío = variable" /></Field>
-        <Field label="Valor de la cuota"><input class="inp" inputmode="decimal" value={f.cuota} onInput={e => set({ cuota: e.currentTarget.value })} /></Field>
+        <Field label="Valor de la cuota"><MontoInput value={f.cuota} onValue={v => set({ cuota: v })} /></Field>
       </div>
       <Field label="Terminar de pagar en (mes)"><input type="month" class="inp" value={f.fin} onInput={e => set({ fin: e.currentTarget.value })} /></Field>
       <p class="hint">Si pagás montos variables, dejá las cuotas vacías y poné la fecha objetivo: te calculamos cuánto pagar por mes.</p>
@@ -156,7 +156,7 @@ export function PmovForm({ prestamoId, x }: { prestamoId: string; x?: Pmov }) {
   const p = prestamos.value.find(q => q.id === prestamoId)!;
   const c = prestamoCalc(p, pmovs.value, mes.value);
   const [tipo, setTipo] = useState<TipoPmov>(x?.tipo || 'Pago');
-  const [monto, setMonto] = useState(String(x?.monto ?? (p.cuotasTotales ? p.cuota : Math.round(c.sugerido || 0)) ?? ''));
+  const [monto, setMonto] = useState(formatMiles(String(x?.monto ?? (p.cuotasTotales ? p.cuota : Math.round(c.sugerido || 0)) ?? '')));
   const [fecha, setFecha] = useState(x?.fecha || todayISO());
   const [cuotas, setCuotas] = useState(String(x ? x.cuotas || '' : p.cuotasTotales ? 1 : ''));
   const [nota, setNota] = useState(x?.nota || '');
@@ -183,7 +183,7 @@ export function PmovForm({ prestamoId, x }: { prestamoId: string; x?: Pmov }) {
     <form onSubmit={save}>
       <h3>{x ? 'Editar' : 'Registrar'} · {p.nombre}</h3>
       <Seg value={tipo} onChange={v => { setTipo(v); }} options={TIPOS.map(t => [t, t])} />
-      <Field label={`Monto (${MONEDAS[p.moneda].simbolo})`}><input class="inp amount" inputmode="decimal" value={monto} onInput={e => setMonto(e.currentTarget.value)} /></Field>
+      <Field label={`Monto (${MONEDAS[p.moneda].simbolo})`}><MontoInput class="amount" value={monto} onValue={setMonto} /></Field>
       <div class="grid2">
         <Field label="Fecha"><input type="date" class="inp" value={fecha} onInput={e => setFecha(e.currentTarget.value)} /></Field>
         <Field label="Cuotas que cubre"><input class="inp" inputmode="numeric" value={cuotas} onInput={e => setCuotas(e.currentTarget.value)} /></Field>

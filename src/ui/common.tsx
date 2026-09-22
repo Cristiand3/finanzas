@@ -1,5 +1,6 @@
-import type { ComponentChildren } from 'preact';
-import { fmt } from '../lib/format';
+import type { ComponentChildren, Ref } from 'preact';
+import { useRef } from 'preact/hooks';
+import { contarDigitos, fmt, formatMiles, posicionDelCursor } from '../lib/format';
 import type { Moneda } from '../lib/model';
 import { closeSheet } from './state';
 
@@ -13,6 +14,37 @@ export function Seg<T extends string>({ value, options, onChange }: {
       ))}
     </div>
   );
+}
+
+/** Campo de monto: pone los puntos de miles mientras se escribe. */
+export function MontoInput({ value, onValue, inputRef, class: cls = '', ...rest }: {
+  value: string;
+  onValue: (v: string) => void;
+  inputRef?: Ref<HTMLInputElement>;
+  class?: string;
+  placeholder?: string;
+  autocomplete?: string;
+}) {
+  const anterior = useRef(value);
+  const onInput = (e: Event) => {
+    const el = e.currentTarget as HTMLInputElement;
+    const pos = el.selectionStart ?? el.value.length;
+    // Si con "borrar" se comió un punto de miles, se borra el número que está antes.
+    if ((e as InputEvent).inputType === 'deleteContentBackward'
+      && anterior.current[pos] === '.'
+      && el.value.length === anterior.current.length - 1) {
+      el.value = el.value.slice(0, pos - 1) + el.value.slice(pos);
+      el.setSelectionRange(pos - 1, pos - 1);
+    }
+    const digitosAntes = contarDigitos(el.value.slice(0, el.selectionStart ?? el.value.length));
+    const formateado = formatMiles(el.value);
+    el.value = formateado;
+    const cursor = posicionDelCursor(formateado, digitosAntes);
+    el.setSelectionRange(cursor, cursor);
+    anterior.current = formateado;
+    onValue(formateado);
+  };
+  return <input {...rest} ref={inputRef} class={`inp ${cls}`} inputmode="decimal" value={value} onInput={onInput} />;
 }
 
 export const Field = ({ label, children }: { label: string; children: ComponentChildren }) => (
