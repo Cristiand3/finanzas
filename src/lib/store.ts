@@ -5,7 +5,7 @@ import {
   setDoc, updateDoc, writeBatch, type Unsubscribe,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
-import { DEFAULTS, type Hogar, type Meta, type Mov, type Pmov, type Prestamo } from './model';
+import { conObjetivos, DEFAULTS, type Hogar, type Meta, type Mov, type Pmov, type Prestamo } from './model';
 
 export const COLS = ['movs', 'metas', 'prestamos', 'pmovs'] as const;
 export type Col = (typeof COLS)[number];
@@ -61,8 +61,8 @@ function escucharHogar(hid: string) {
   }));
   for (const c of COLS) {
     subsHogar.push(onSnapshot(collection(db, 'hogares', hid, c), q => {
-      const docs = q.docs.map(d => d.data());
-      if (c === 'metas') docs.sort((x, y) => (x.orden || 0) - (y.orden || 0));
+      let docs = q.docs.map(d => d.data());
+      if (c === 'metas') docs = docs.map(m => conObjetivos(m as Meta)).sort((x, y) => (x.orden || 0) - (y.orden || 0));
       (data[c] as { value: unknown[] }).value = docs;
     }, e => console.error(c, e)));
   }
@@ -120,7 +120,7 @@ export async function crearHogar(nombre: string, personas: string[]) {
   await setDoc(doc(db, 'hogares', id), h);
   const b = writeBatch(db);
   for (const [i, n] of DEFAULTS.metas.entries()) {
-    const m: Meta = { id: newId(), nombre: n, objetivo: 0, moneda: 'ARS', orden: i };
+    const m: Meta = { id: newId(), nombre: n, objetivos: {}, orden: i };
     b.set(doc(db, 'hogares', id, 'metas', m.id), m);
   }
   await b.commit();
@@ -187,7 +187,6 @@ export const cerrarSesion = () => signOut(auth);
 /** Importa un respaldo (de esta versión o de la versión 1) agregándolo al hogar. */
 export async function importar(obj: any) {
   const h = hogar.value!;
-  const tc = (x: any) => (x.moneda === 'USD' ? x.tc || 0 : 1);
   const metaIds = new Map<string, string>();
   const presIds = new Map<string, string>();
   const ops: [Col, { id: string } & Record<string, unknown>][] = [];
@@ -195,7 +194,8 @@ export async function importar(obj: any) {
     const existente = metas.value.find(x => x.nombre.toLowerCase() === String(m.nombre).toLowerCase());
     if (existente) { metaIds.set(m.id, existente.id); continue; }
     const id = newId(); metaIds.set(m.id, id);
-    ops.push(['metas', { id, nombre: m.nombre, objetivo: +m.objetivo || 0, moneda: m.moneda || 'ARS', orden: Date.now() }]);
+    const objetivos = m.objetivos || (+m.objetivo ? { [m.moneda || 'ARS']: +m.objetivo } : {});
+    ops.push(['metas', { id, nombre: m.nombre, objetivos, orden: Date.now() }]);
   }
   for (const p of obj.prestamos || []) {
     const id = newId(); presIds.set(p.id, id);
@@ -205,7 +205,7 @@ export async function importar(obj: any) {
   for (const m of obj.movs || []) {
     const cuotas = typeof m.cuotas === 'number' ? m.cuotas : 1;
     ops.push(['movs', {
-      ...m, id: newId(), moneda: m.moneda || 'ARS', tc: tc(m), cuotas: cuotas > 1 ? cuotas : undefined,
+      ...m, id: newId(), moneda: m.moneda || 'ARS', tc: undefined, cuotas: cuotas > 1 ? cuotas : undefined,
       meta: m.meta ? metaIds.get(m.meta) : undefined, creadoPor: uid(),
     }]);
   }

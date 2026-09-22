@@ -1,4 +1,12 @@
-export type Moneda = 'ARS' | 'USD';
+export type Moneda = 'ARS' | 'USD' | 'EUR' | 'BRL';
+
+export const MONEDAS: Record<Moneda, { simbolo: string; nombre: string }> = {
+  ARS: { simbolo: '$', nombre: 'Pesos' },
+  USD: { simbolo: 'US$', nombre: 'Dólares' },
+  EUR: { simbolo: '€', nombre: 'Euros' },
+  BRL: { simbolo: 'R$', nombre: 'Reales' },
+};
+export const MONEDA_IDS = Object.keys(MONEDAS) as Moneda[];
 export type TipoMov = 'gasto' | 'ingreso' | 'ahorro';
 export type TipoPmov = 'Pago' | 'Interés' | 'Ajuste' | 'Pago previo';
 
@@ -11,7 +19,7 @@ export interface Mov {
   cat: string; // categoría (gasto) o tipo de ingreso
   monto: number; // total, en `moneda`
   moneda: Moneda;
-  tc: number; // pesos por dólar al cargarlo (1 si es ARS)
+  tc?: number; // cotización guardada por versiones anteriores; ya no se usa
   medio?: string;
   cuotas?: number; // > 1 = compra en cuotas
   desde?: string; // YYYY-MM de la primera cuota
@@ -20,7 +28,21 @@ export interface Mov {
   creadoPor?: string;
 }
 
-export interface Meta { id: string; nombre: string; objetivo: number; moneda: Moneda; orden?: number }
+/** Una meta puede juntar plata en varias monedas a la vez: un objetivo por cada una. */
+export interface Meta {
+  id: string;
+  nombre: string;
+  objetivos: Partial<Record<Moneda, number>>;
+  orden?: number;
+  objetivo?: number; // versiones anteriores
+  moneda?: Moneda;   // versiones anteriores
+}
+
+/** Normaliza las metas guardadas por versiones anteriores (un solo objetivo y una moneda). */
+export function conObjetivos(m: Meta): Meta {
+  if (m.objetivos) return m;
+  return { ...m, objetivos: m.objetivo ? { [m.moneda || 'ARS']: m.objetivo } : {} };
+}
 
 export interface Prestamo {
   id: string;

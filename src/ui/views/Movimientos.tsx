@@ -49,9 +49,8 @@ function Fila({ l }: { l: Linea }) {
       <div class="dot">{icon}</div>
       <div class="m"><div class="t">{title}</div><div class="s">{sub}</div></div>
       <div class="r">
-        <div class={`num ${cls}`}>{signo}{fmt(l.ars)}</div>
+        <div class={`num ${cls}`}>{signo}{fmt(l.monto, m.moneda)}</div>
         {l.cuota && <span class="pill">Cuota {l.cuota.k}/{l.cuota.n}</span>}
-        {m.moneda === 'USD' && <span class="pill usd">{fmt(l.cuota ? m.monto / l.cuota.n : m.monto, 'USD')}</span>}
       </div>
     </button>
   );

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { cuotasFuturas, lineaDelMes, metaAhorrado, monthsBetween, prestamoCalc, resumen, shiftMonth } from './calc';
-import type { Mov } from './model';
+import { cuotasFuturas, lineaDelMes, monedasUsadas, monthsBetween, prestamoCalc, progresoMeta, resumen, shiftMonth } from './calc';
+import { conObjetivos, type Meta, type Mov } from './model';
 
 const mov = (p: Partial<Mov>): Mov => ({
   id: Math.random().toString(36), tipo: 'gasto', fecha: '2026-09-10', persona: 'A', desc: '', cat: 'Otros',
-  monto: 0, moneda: 'ARS', tc: 1, ...p,
+  monto: 0, moneda: 'ARS', ...p,
 });
 
 describe('fechas', () => {
@@ -19,7 +19,7 @@ describe('cuotas', () => {
   const tv = mov({ monto: 600_000, cuotas: 6, desde: '2026-10', cat: 'Hogar' });
   it('reparte la compra en los meses de cada cuota', () => {
     expect(lineaDelMes(tv, '2026-09')).toBeNull();
-    expect(lineaDelMes(tv, '2026-10')).toMatchObject({ ars: 100_000, cuota: { k: 1, n: 6 } });
+    expect(lineaDelMes(tv, '2026-10')).toMatchObject({ monto: 100_000, cuota: { k: 1, n: 6 } });
     expect(lineaDelMes(tv, '2027-03')).toMatchObject({ cuota: { k: 6, n: 6 } });
     expect(lineaDelMes(tv, '2027-04')).toBeNull();
   });
@@ -35,27 +35,66 @@ describe('cuotas', () => {
     expect(f.activas[0]).toMatchObject({ k: 3, n: 6, restante: 400_000 }); // cuotas 3 a 6
   });
   it('sin fecha de primera cuota arranca en el mes de la compra', () => {
-    expect(lineaDelMes(mov({ monto: 300, cuotas: 3 }), '2026-09')?.ars).toBe(100);
+    expect(lineaDelMes(mov({ monto: 300, cuotas: 3 }), '2026-09')?.monto).toBe(100);
+  });
+  it('separa las cuotas de cada moneda', () => {
+    const movs = [tv, mov({ monto: 1200, moneda: 'USD', cuotas: 12, desde: '2026-10' })];
+    expect(cuotasFuturas(movs, '2026-10').totalRestante).toBe(600_000);
+    expect(cuotasFuturas(movs, '2026-10', 12, 'USD').totalRestante).toBe(1200);
   });
 });
 
-describe('dólares', () => {
-  it('convierte a pesos con la cotización guardada', () => {
-    const r = resumen([
-      mov({ tipo: 'ingreso', monto: 1000, moneda: 'USD', tc: 1500 }),
-      mov({ monto: 300_000 }),
-    ], '2026-09');
-    expect(r.ing).toBe(1_500_000);
-    expect(r.libre).toBe(1_200_000);
-    expect(r.pctGasto).toBeCloseTo(0.2);
+describe('monedas', () => {
+  const movs = [
+    mov({ tipo: 'ingreso', monto: 1_000_000 }),
+    mov({ monto: 300_000 }),
+    mov({ monto: 200, moneda: 'USD' }),
+    mov({ tipo: 'ingreso', monto: 500, moneda: 'EUR' }),
+  ];
+  it('nunca mezcla monedas en los totales', () => {
+    const pesos = resumen(movs, '2026-09');
+    expect(pesos.ing).toBe(1_000_000);
+    expect(pesos.gas).toBe(300_000);
+    const dolares = resumen(movs, '2026-09', 'Todos', 'USD');
+    expect(dolares.gas).toBe(200);
+    expect(dolares.ing).toBe(0);
+    expect(resumen(movs, '2026-09', 'Todos', 'EUR').libre).toBe(500);
   });
-  it('suma aportes a una meta en dólares aunque se hayan cargado en pesos', () => {
-    const meta = { id: 'm', nombre: 'Viaje', objetivo: 2000, moneda: 'USD' as const };
-    const movs = [
-      mov({ tipo: 'ahorro', meta: 'm', monto: 100, moneda: 'USD', tc: 1500 }),
-      mov({ tipo: 'ahorro', meta: 'm', monto: 150_000, moneda: 'ARS', tc: 1500 }),
-    ];
-    expect(metaAhorrado(movs, meta)).toBe(200);
+  it('lista las monedas usadas en el mes, con pesos siempre primero', () => {
+    expect(monedasUsadas(movs, '2026-09')).toEqual(['ARS', 'USD', 'EUR']);
+    expect(monedasUsadas([mov({ monto: 10, moneda: 'BRL' })])).toEqual(['ARS', 'BRL']);
+  });
+});
+
+describe('metas con varias monedas', () => {
+  const meta: Meta = { id: 'm', nombre: 'Viaje', objetivos: { ARS: 500_000, USD: 1000 } };
+  const movs = [
+    mov({ tipo: 'ahorro', meta: 'm', monto: 150_000, persona: 'A' }),
+    mov({ tipo: 'ahorro', meta: 'm', monto: 50_000, persona: 'B' }),
+    mov({ tipo: 'ahorro', meta: 'm', monto: 400, moneda: 'USD', persona: 'A' }),
+  ];
+  it('lleva el avance de cada moneda por separado', () => {
+    expect(progresoMeta(movs, meta)).toEqual([
+      { moneda: 'ARS', objetivo: 500_000, ahorrado: 200_000 },
+      { moneda: 'USD', objetivo: 1000, ahorrado: 400 },
+    ]);
+  });
+  it('puede filtrar por persona', () => {
+    expect(progresoMeta(movs, meta, 'B')).toEqual([
+      { moneda: 'ARS', objetivo: 500_000, ahorrado: 50_000 },
+      { moneda: 'USD', objetivo: 1000, ahorrado: 0 },
+    ]);
+  });
+  it('muestra aportes en una moneda sin objetivo', () => {
+    const solo: Meta = { id: 'm', nombre: 'Viaje', objetivos: {} };
+    expect(progresoMeta(movs, solo)).toEqual([
+      { moneda: 'ARS', objetivo: 0, ahorrado: 200_000 },
+      { moneda: 'USD', objetivo: 0, ahorrado: 400 },
+    ]);
+  });
+  it('convierte las metas guardadas por la versión anterior', () => {
+    expect(conObjetivos({ id: 'x', nombre: 'Viejo', objetivo: 2000, moneda: 'USD' } as Meta).objetivos).toEqual({ USD: 2000 });
+    expect(conObjetivos({ id: 'x', nombre: 'Sin objetivo' } as Meta).objetivos).toEqual({});
   });
 });
 

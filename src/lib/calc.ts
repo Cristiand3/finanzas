@@ -1,4 +1,4 @@
-import type { Meta, Mov, Pmov, Prestamo } from './model';
+import type { Meta, Moneda, Mov, Pmov, Prestamo } from './model';
 
 // ---------- fechas ----------
 export const ym = (iso: string) => iso.slice(0, 7);
@@ -20,42 +20,54 @@ export const monthsBetween = (a: string, b: string) => {
 };
 
 // ---------- montos ----------
-export const toARS = (m: Pick<Mov, 'monto' | 'moneda' | 'tc'>) => (m.moneda === 'USD' ? m.monto * (m.tc || 0) : m.monto);
+// Cada movimiento vive en su moneda: nunca se convierte de una a otra.
 export const sum = <T>(a: T[], f: (x: T) => number) => a.reduce((t, x) => t + (+f(x) || 0), 0);
 
-/** Parte de un movimiento que corresponde a un mes (en pesos). Las compras en cuotas se reparten. */
-export interface Linea { mov: Mov; ars: number; cuota?: { k: number; n: number } }
+/** Parte de un movimiento que corresponde a un mes. Las compras en cuotas se reparten. */
+export interface Linea { mov: Mov; monto: number; cuota?: { k: number; n: number } }
 export function lineaDelMes(m: Mov, mes: string): Linea | null {
   const n = m.tipo === 'gasto' ? m.cuotas || 1 : 1;
   if (n > 1) {
     const k = monthsBetween(m.desde || ym(m.fecha), mes);
     if (k < 0 || k >= n) return null;
-    return { mov: m, ars: toARS(m) / n, cuota: { k: k + 1, n } };
+    return { mov: m, monto: m.monto / n, cuota: { k: k + 1, n } };
   }
-  return ym(m.fecha) === mes ? { mov: m, ars: toARS(m) } : null;
+  return ym(m.fecha) === mes ? { mov: m, monto: m.monto } : null;
 }
 
-export function lineasDelMes(movs: Mov[], mes: string, persona = 'Todos') {
+export function lineasDelMes(movs: Mov[], mes: string, persona = 'Todos', moneda?: Moneda) {
   const out: Linea[] = [];
   for (const m of movs) {
     if (persona !== 'Todos' && m.persona !== persona) continue;
+    if (moneda && m.moneda !== moneda) continue;
     const l = lineaDelMes(m, mes);
     if (l) out.push(l);
   }
   return out;
 }
 
-export function resumen(movs: Mov[], mes: string, persona = 'Todos') {
-  const ls = lineasDelMes(movs, mes, persona);
+/** Monedas con movimientos, para mostrar los totales de cada una por separado. */
+export function monedasUsadas(movs: Mov[], mes?: string, persona = 'Todos'): Moneda[] {
+  const set = new Set<Moneda>(['ARS']);
+  for (const m of movs) {
+    if (persona !== 'Todos' && m.persona !== persona) continue;
+    if (mes && !lineaDelMes(m, mes)) continue;
+    set.add(m.moneda);
+  }
+  return [...set];
+}
+
+export function resumen(movs: Mov[], mes: string, persona = 'Todos', moneda: Moneda = 'ARS') {
+  const ls = lineasDelMes(movs, mes, persona, moneda);
   const of = (t: string) => ls.filter(l => l.mov.tipo === t);
-  const ing = sum(of('ingreso'), l => l.ars);
-  const gas = sum(of('gasto'), l => l.ars);
-  const aho = sum(of('ahorro'), l => l.ars);
+  const ing = sum(of('ingreso'), l => l.monto);
+  const gas = sum(of('gasto'), l => l.monto);
+  const aho = sum(of('ahorro'), l => l.monto);
   const porCat = new Map<string, number>();
-  for (const l of of('gasto')) porCat.set(l.mov.cat, (porCat.get(l.mov.cat) || 0) + l.ars);
-  const enCuotas = sum(of('gasto').filter(l => l.cuota), l => l.ars);
+  for (const l of of('gasto')) porCat.set(l.mov.cat, (porCat.get(l.mov.cat) || 0) + l.monto);
   return {
-    ing, gas, aho, enCuotas,
+    moneda, ing, gas, aho,
+    enCuotas: sum(of('gasto').filter(l => l.cuota), l => l.monto),
     sobrante: ing - gas,
     libre: ing - gas - aho,
     pctGasto: ing ? gas / ing : NaN,
@@ -66,29 +78,39 @@ export function resumen(movs: Mov[], mes: string, persona = 'Todos') {
 }
 
 /** Cuotas por pagar: `proximos` desde el mes siguiente; `activas` incluye la cuota de `mes`. */
-export function cuotasFuturas(movs: Mov[], mes: string, meses = 12) {
+export function cuotasFuturas(movs: Mov[], mes: string, meses = 12, moneda: Moneda = 'ARS') {
+  const enCuotas = movs.filter(m => m.tipo === 'gasto' && (m.cuotas || 1) > 1 && m.moneda === moneda);
   const proximos = Array.from({ length: meses }, (_, i) => {
     const k = shiftMonth(mes, i + 1);
-    return { mes: k, total: sum(movs, m => (m.tipo === 'gasto' && (m.cuotas || 1) > 1 ? lineaDelMes(m, k)?.ars || 0 : 0)) };
+    return { mes: k, total: sum(enCuotas, m => lineaDelMes(m, k)?.monto || 0) };
   });
-  const activas = movs
-    .filter(m => m.tipo === 'gasto' && (m.cuotas || 1) > 1)
+  const activas = enCuotas
     .map(m => {
       const n = m.cuotas!;
       const k = monthsBetween(m.desde || ym(m.fecha), mes) + 1; // cuota que corresponde a `mes`
       const faltan = k < 1 ? n : Math.max(0, n - k + 1); // incluye la cuota del mes
-      return { mov: m, k, n, restante: (toARS(m) / n) * faltan };
+      return { mov: m, k, n, restante: (m.monto / n) * faltan };
     })
     .filter(a => a.k <= a.n && a.restante > 0)
     .sort((a, b) => b.restante - a.restante);
-  return { proximos, activas, totalRestante: sum(activas, a => a.restante) };
+  return { moneda, proximos, activas, totalRestante: sum(activas, a => a.restante) };
 }
 
-export function metaAhorrado(movs: Mov[], meta: Meta, persona?: string) {
-  return sum(
-    movs.filter(m => m.tipo === 'ahorro' && m.meta === meta.id && (!persona || m.persona === persona)),
-    m => (m.moneda === meta.moneda ? m.monto : meta.moneda === 'USD' ? toARS(m) / (m.tc || 1) : toARS(m)),
-  );
+export const aportesMeta = (movs: Mov[], metaId: string, moneda: Moneda, persona?: string) =>
+  sum(movs.filter(m => m.tipo === 'ahorro' && m.meta === metaId && m.moneda === moneda && (!persona || m.persona === persona)), m => m.monto);
+
+/** Avance de una meta: una línea por cada moneda con objetivo o con aportes. */
+export function progresoMeta(movs: Mov[], meta: Meta, persona?: string) {
+  const objetivos = meta.objetivos || {};
+  const monedas = new Set<Moneda>(Object.keys(objetivos) as Moneda[]);
+  for (const m of movs) if (m.tipo === 'ahorro' && m.meta === meta.id) monedas.add(m.moneda);
+  return [...monedas]
+    .map(moneda => ({
+      moneda,
+      objetivo: objetivos[moneda] || 0,
+      ahorrado: aportesMeta(movs, meta.id, moneda, persona),
+    }))
+    .filter(x => x.objetivo > 0 || x.ahorrado !== 0);
 }
 
 export function prestamoCalc(p: Prestamo, pmovs: Pmov[], mes: string) {

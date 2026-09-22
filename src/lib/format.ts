@@ -1,9 +1,13 @@
-import type { Moneda } from './model';
+import { MONEDAS, type Moneda } from './model';
 
-export const fmt = (n: number, moneda: Moneda = 'ARS') =>
-  moneda === 'USD'
-    ? 'US$ ' + (n || 0).toLocaleString('es-AR', { maximumFractionDigits: 2 })
-    : '$ ' + Math.round(n || 0).toLocaleString('es-AR');
+export const fmt = (n: number, moneda: Moneda = 'ARS') => {
+  const simbolo = MONEDAS[moneda]?.simbolo || '$';
+  // Los pesos se muestran redondeados; el resto admite centavos.
+  const valor = moneda === 'ARS'
+    ? Math.round(n || 0).toLocaleString('es-AR')
+    : (n || 0).toLocaleString('es-AR', { maximumFractionDigits: 2 });
+  return `${simbolo} ${valor}`;
+};
 
 export const pct = (n: number) => (isFinite(n) ? Math.round(n * 100) + '%' : '—');
 

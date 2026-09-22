@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { shiftMonth, todayISO, ym } from '../../lib/calc';
-import { recordarTC, ultimoTC } from '../../lib/tc';
 import { fmt, monthName, parseAmt } from '../../lib/format';
-import { CAT_ICON, type Moneda, type Mov, type TipoMov } from '../../lib/model';
+import { CAT_ICON, MONEDAS, MONEDA_IDS, type Moneda, type Mov, type TipoMov } from '../../lib/model';
 import { borrar, guardar, hogar, metas, miPersona, newId, toast } from '../../lib/store';
 import { Field, Seg } from '../common';
 import { closeSheet, mes } from '../state';
@@ -14,19 +13,18 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
   const hoy = todayISO();
   const init: Mov = mov ? { ...mov } : {
     id: '', tipo: 'gasto', fecha: ym(hoy) === mes.value ? hoy : `${mes.value}-01`, persona: miPersona.value,
-    desc: '', cat: h.categorias[0], monto: 0, moneda: 'ARS', tc: 1, medio: lastMedio() || h.medios[0],
+    desc: '', cat: h.categorias[0], monto: 0, moneda: 'ARS', medio: lastMedio() || h.medios[0],
     ...preset,
   };
   const [m, setM] = useState<Mov>(init);
   const nuevo = !m.id; // también al duplicar
   const [montoTxt, setMontoTxt] = useState(mov ? String(mov.monto).replace('.', ',') : '');
-  const [tcTxt, setTcTxt] = useState(init.moneda === 'USD' ? String(init.tc) : ultimoTC());
   const set = (p: Partial<Mov>) => setM(x => ({ ...x, ...p }));
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { if (!mov) setTimeout(() => ref.current?.focus(), 250); }, []);
 
   const metaSel = metas.value.find(x => x.id === m.meta) || metas.value[0];
-  const moneda: Moneda = m.tipo === 'ahorro' ? metaSel?.moneda || 'ARS' : m.moneda;
+  const moneda: Moneda = m.moneda;
   const monto = parseAmt(montoTxt);
   const cuotas = m.tipo === 'gasto' ? m.cuotas || 1 : 1;
   const desdeDefault = (medio?: string) => (medio === 'Crédito' ? shiftMonth(ym(m.fecha), 1) : ym(m.fecha));
@@ -40,12 +38,9 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
   const save = (e?: Event) => {
     e?.preventDefault();
     if (!monto) { toast('Ingresá un monto'); return; }
-    const tc = moneda === 'USD' ? parseAmt(tcTxt) : 1;
-    if (moneda === 'USD' && !tc) { toast('Escribí a cuánto tomás el dólar'); return; }
-    if (moneda === 'USD') recordarTC(tc);
     const out: Mov = {
       id: m.id || newId(), tipo: m.tipo, fecha: m.fecha || hoy, persona: m.persona, desc: m.desc.trim(), cat: m.cat,
-      monto, moneda, tc, notas: m.notas?.trim() || undefined,
+      monto, moneda, notas: m.notas?.trim() || undefined,
     };
     if (m.tipo === 'gasto') {
       out.medio = m.medio;
@@ -70,17 +65,12 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
       <Field label={cuotas > 1 ? 'Monto total de la compra' : 'Monto'}>
         <div class="amountbox">
           <input ref={ref} class="inp amount" inputmode="decimal" placeholder="0" value={montoTxt} onInput={e => setMontoTxt(e.currentTarget.value)} autocomplete="off" />
-          {m.tipo !== 'ahorro'
-            ? <select class="inp cur" value={m.moneda} onChange={e => set({ moneda: e.currentTarget.value as Moneda })}><option value="ARS">$</option><option value="USD">US$</option></select>
-            : <span class="inp cur" style={{ display: 'grid', placeItems: 'center' }}>{moneda === 'USD' ? 'US$' : '$'}</span>}
+          <select class="inp cur" aria-label="Moneda" value={m.moneda} onChange={e => set({ moneda: e.currentTarget.value as Moneda })}>
+            {MONEDA_IDS.map(c => <option value={c}>{MONEDAS[c].simbolo}</option>)}
+          </select>
         </div>
+        {moneda !== 'ARS' && <span class="hint">{MONEDAS[moneda].nombre}: se guarda en esta moneda y se suma aparte de los pesos.</span>}
       </Field>
-      {moneda === 'USD' && (
-        <Field label="¿A cuánto tomás el dólar?">
-          <input class="inp" inputmode="decimal" value={tcTxt} onInput={e => setTcTxt(e.currentTarget.value)} placeholder="Ej: 1500" />
-          <span class="hint">{monto > 0 && parseAmt(tcTxt) > 0 ? `Son ${fmt(monto * parseAmt(tcTxt))} · solo se usa para sumarlo con tus gastos en pesos` : 'Se usa solo para sumarlo con tus gastos en pesos.'}</span>
-        </Field>
-      )}
 
       <div class="grid2">
         <Field label="Fecha"><input type="date" class="inp" value={m.fecha} onInput={e => set({ fecha: e.currentTarget.value })} /></Field>
@@ -137,10 +127,10 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
         <>
           <Field label="Meta">
             <select class="inp" value={metaSel?.id} onChange={e => set({ meta: e.currentTarget.value })}>
-              {metas.value.map(x => <option value={x.id}>{x.nombre}{x.moneda === 'USD' ? ' (US$)' : ''}</option>)}
+              {metas.value.map(x => <option value={x.id}>{x.nombre}</option>)}
             </select>
           </Field>
-          <p class="hint">Para registrar un retiro de la meta, cargá el monto en negativo (ej: −50000).</p>
+          <p class="hint">El aporte se suma a la meta en la moneda que elegiste arriba. Para registrar un retiro, cargá el monto en negativo (ej: −50000).</p>
         </>
       )}
 

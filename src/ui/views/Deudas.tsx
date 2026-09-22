@@ -1,19 +1,20 @@
 import { cuotasFuturas, prestamoCalc } from '../../lib/calc';
 import { fmt, monthName, monthShort, pct } from '../../lib/format';
-import { CAT_ICON } from '../../lib/model';
+import { CAT_ICON, MONEDAS } from '../../lib/model';
 import { movs, pmovs, prestamos } from '../../lib/store';
 import { Bar } from '../common';
 import { MovForm } from '../forms/MovForm';
 import { PrestamoDetalle, PrestamoForm } from '../forms/Otros';
-import { mes, openSheet } from '../state';
+import { mes, monedaVista, openSheet } from '../state';
 
 export function Deudas() {
-  const cf = cuotasFuturas(movs.value, mes.value, 6);
+  const moneda = monedaVista.value;
+  const cf = cuotasFuturas(movs.value, mes.value, 6, moneda);
   const maxCol = Math.max(1, ...cf.proximos.map(p => p.total));
   return (
     <>
       <div class="card feature">
-        <div class="stat big"><div class="l">Compras en cuotas: te falta pagar</div><div class="v">{fmt(cf.totalRestante)}</div></div>
+        <div class="stat big"><div class="l">Compras en cuotas: te falta pagar</div><div class="v">{fmt(cf.totalRestante, moneda)}</div></div>
         <div class="hint">Incluye la cuota de {monthName(mes.value).toLowerCase()}</div>
       </div>
 
@@ -22,10 +23,10 @@ export function Deudas() {
           <div class="card"><h2>Próximos meses</h2>
             <div class="cols">
               {cf.proximos.map(p => (
-                <div title={fmt(p.total)}><i style={{ height: `${(p.total / maxCol) * 70}px` }} /><span>{monthShort(p.mes)}</span></div>
+                <div title={fmt(p.total, moneda)}><i style={{ height: `${(p.total / maxCol) * 70}px` }} /><span>{monthShort(p.mes)}</span></div>
               ))}
             </div>
-            {cf.proximos.slice(0, 3).map(p => <div class="row"><span>{monthName(p.mes)}</span><span class="num">{fmt(p.total)}</span></div>)}
+            {cf.proximos.slice(0, 3).map(p => <div class="row"><span>{monthName(p.mes)}</span><span class="num">{fmt(p.total, moneda)}</span></div>)}
           </div>
           <div class="card"><h2>Compras en cuotas</h2>
             {cf.activas.map(a => (
@@ -35,13 +36,13 @@ export function Deudas() {
                   <div class="s">{a.k < 1 ? `Empieza en ${monthName(a.mov.desde!).toLowerCase()}` : `Cuota ${a.k} de ${a.n}`} · {a.mov.persona}{a.mov.medio ? ` · ${a.mov.medio}` : ''}</div>
                   <Bar value={Math.max(0, a.k - 1) / a.n} />
                 </div>
-                <div class="num">{fmt(a.restante)}</div>
+                <div class="num">{fmt(a.restante, moneda)}</div>
               </div>
             ))}
           </div>
         </>
       ) : (
-        <p class="hint" style={{ textAlign: 'center' }}>Cuando cargues un gasto en cuotas, lo vas a ver acá repartido mes a mes.</p>
+        <p class="hint" style={{ textAlign: 'center' }}>Cuando cargues un gasto en cuotas en {MONEDAS[moneda].nombre.toLowerCase()}, lo vas a ver acá repartido mes a mes.</p>
       )}
 
       <h2 class="pagetitle" style={{ fontSize: 18, marginTop: 22 }}>Préstamos y deudas</h2>
@@ -51,7 +52,7 @@ export function Deudas() {
           <div class="card tap" onClick={() => openSheet(<PrestamoDetalle id={p.id} />)}>
             <div class="row" style={{ paddingTop: 0 }}>
               <div>
-                <div class="t">{p.nombre} {p.moneda === 'USD' && <span class="pill usd">US$</span>}</div>
+                <div class="t">{p.nombre} {p.moneda !== 'ARS' && <span class="pill usd">{MONEDAS[p.moneda].simbolo}</span>}</div>
                 <div class="s">{[p.persona, p.cuotasTotales ? `${c.cuotasPagadas}/${p.cuotasTotales} cuotas` : 'pago variable', p.fin ? `fin ${monthName(p.fin).toLowerCase()}` : ''].filter(Boolean).join(' · ')}</div>
               </div>
               <span class="pill">{pct(c.progreso)}</span>

@@ -1,14 +1,15 @@
 import { useEffect } from 'preact/hooks';
-import { shiftMonth } from '../lib/calc';
+import { monedasUsadas, shiftMonth } from '../lib/calc';
 import { monthName } from '../lib/format';
-import { hogar, online, perfil, toastMsg, unirse, user, toast } from '../lib/store';
+import { MONEDAS } from '../lib/model';
+import { hogar, movs, online, perfil, toastMsg, unirse, user, toast } from '../lib/store';
 import { ICONS } from './common';
 import { MovForm } from './forms/MovForm';
 import { MetaForm, PrestamoForm, QuienSos } from './forms/Otros';
 import { clearInvite, getInvite } from './invite';
 import { Login } from './Login';
 import { Onboarding } from './Onboarding';
-import { closeSheet, filtroPersona, mes, openSheet, persistUI, sheet, tab, type Tab } from './state';
+import { closeSheet, filtroPersona, mes, monedaVista, openSheet, persistUI, sheet, tab, type Tab } from './state';
 import { Ajustes } from './views/Ajustes';
 import { Deudas } from './views/Deudas';
 import { Inicio } from './views/Inicio';
@@ -34,6 +35,7 @@ function Main() {
   useEffect(() => { if (!perfil.value?.persona && h.personas.length > 1) openSheet(<QuienSos />); }, [h.id]);
   useEffect(() => { if (filtroPersona.value !== 'Todos' && !h.personas.includes(filtroPersona.value)) filtroPersona.value = 'Todos'; }, [h.personas.join()]);
 
+  const monedas = monedasUsadas(movs.value);
   const inv = getInvite();
   const monthly = t === 'inicio' || t === 'movs';
   const fab = () => (t === 'metas' ? openSheet(<MetaForm />) : t === 'deudas' ? openSheet(<PrestamoForm />) : openSheet(<MovForm />));
@@ -52,6 +54,14 @@ function Main() {
           <div class="chips">
             {['Todos', ...h.personas].map(p => (
               <button class={`chip ${p === filtroPersona.value ? 'on' : ''}`} onClick={() => (filtroPersona.value = p)}>{p}</button>
+            ))}
+          </div>
+        )}
+        {/* El selector de moneda aparece solo si hay movimientos en más de una. */}
+        {monedas.length > 1 && (t === 'inicio' || t === 'deudas') && (
+          <div class="chips">
+            {monedas.map(c => (
+              <button class={`chip ${c === monedaVista.value ? 'on' : ''}`} onClick={() => (monedaVista.value = c)}>{MONEDAS[c].simbolo} {MONEDAS[c].nombre}</button>
             ))}
           </div>
         )}

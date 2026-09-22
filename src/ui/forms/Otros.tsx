@@ -1,8 +1,7 @@
 import { useState } from 'preact/hooks';
 import { prestamoCalc, todayISO } from '../../lib/calc';
-import { ultimoTC } from '../../lib/tc';
 import { fmt, parseAmt } from '../../lib/format';
-import type { Hogar, Meta, Moneda, Pmov, Prestamo, TipoPmov } from '../../lib/model';
+import { MONEDAS, MONEDA_IDS, type Hogar, type Meta, type Moneda, type Pmov, type Prestamo, type TipoPmov } from '../../lib/model';
 import { actualizarHogar, borrar, guardar, hogar, miPersona, movs, newId, pmovs, prestamos, setPersona, toast } from '../../lib/store';
 import { Field, Seg, SheetFooter } from '../common';
 import { closeSheet, mes, openSheet } from '../state';
@@ -11,24 +10,45 @@ import { MovForm } from './MovForm';
 // ---------- metas ----------
 export function MetaForm({ meta }: { meta?: Meta }) {
   const [nombre, setNombre] = useState(meta?.nombre || '');
-  const [obj, setObj] = useState(meta?.objetivo ? String(meta.objetivo) : '');
-  const [moneda, setMoneda] = useState<Moneda>(meta?.moneda || 'ARS');
+  // Una meta puede tener objetivo en varias monedas a la vez (ej: juntar $ y US$ para el mismo viaje).
+  const [objs, setObjs] = useState<Partial<Record<Moneda, string>>>(() => {
+    const o = meta?.objetivos || {};
+    const out: Partial<Record<Moneda, string>> = {};
+    for (const c of MONEDA_IDS) if (o[c]) out[c] = String(o[c]);
+    return Object.keys(out).length ? out : { ARS: '' };
+  });
+  const usadas = MONEDA_IDS.filter(c => objs[c] !== undefined);
+  const libres = MONEDA_IDS.filter(c => objs[c] === undefined);
+  const setObj = (c: Moneda, v: string) => setObjs(o => ({ ...o, [c]: v }));
+  const quitar = (c: Moneda) => setObjs(o => { const n = { ...o }; delete n[c]; return n; });
   const tieneAportes = !!meta && movs.value.some(m => m.meta === meta.id);
+
   const save = (e: Event) => {
     e.preventDefault();
     if (!nombre.trim()) return toast('Poné un nombre');
-    guardar('metas', { id: meta?.id || newId(), nombre: nombre.trim(), objetivo: parseAmt(obj), moneda, orden: meta?.orden ?? Date.now() });
+    const objetivos: Partial<Record<Moneda, number>> = {};
+    for (const c of usadas) { const v = parseAmt(objs[c] || ''); if (v > 0) objetivos[c] = v; }
+    guardar('metas', { id: meta?.id || newId(), nombre: nombre.trim(), objetivos, orden: meta?.orden ?? Date.now() });
     closeSheet();
   };
   return (
     <form onSubmit={save}>
       <h3>{meta ? 'Editar meta' : 'Nueva meta'}</h3>
       <Field label="Nombre"><input class="inp" value={nombre} onInput={e => setNombre(e.currentTarget.value)} placeholder="Ej: Vacaciones en Brasil" /></Field>
-      <Field label="Moneda">
-        {tieneAportes ? <p class="hint">{moneda === 'USD' ? 'Dólares' : 'Pesos'} (no se puede cambiar porque ya tiene aportes)</p>
-          : <Seg value={moneda} onChange={setMoneda} options={[['ARS', 'Pesos'], ['USD', 'Dólares']]} />}
-      </Field>
-      <Field label={`Objetivo (${moneda === 'USD' ? 'US$' : '$'})`}><input class="inp" inputmode="decimal" value={obj} onInput={e => setObj(e.currentTarget.value)} placeholder="Opcional" /></Field>
+      <div class="f-label">Objetivo (opcional)</div>
+      {usadas.map(c => (
+        <div class="row" style={{ borderBottom: 0, paddingTop: 4 }}>
+          <span class="pill" style={{ minWidth: 58, textAlign: 'center' }}>{MONEDAS[c].simbolo}</span>
+          <input class="inp" inputmode="decimal" style={{ flex: 1 }} value={objs[c]} placeholder={`Cuánto querés juntar en ${MONEDAS[c].nombre.toLowerCase()}`} onInput={e => setObj(c, e.currentTarget.value)} />
+          {usadas.length > 1 && <button type="button" class="iconbtn" aria-label="Quitar" onClick={() => quitar(c)}>✕</button>}
+        </div>
+      ))}
+      {libres.length > 0 && (
+        <div class="btns" style={{ flexWrap: 'wrap' }}>
+          {libres.map(c => <button type="button" class="btn ghost sm" onClick={() => setObj(c, '')}>+ {MONEDAS[c].nombre}</button>)}
+        </div>
+      )}
+      <p class="hint">Podés juntar en más de una moneda para la misma meta: cada una lleva su propio avance.</p>
       <button class="btn">Guardar</button>
       {meta && (
         <div class="btns">
@@ -74,7 +94,11 @@ export function PrestamoForm({ p }: { p?: Prestamo }) {
             {['Ambos', ...h.personas].map(x => <option>{x}</option>)}
           </select>
         </Field>
-        <Field label="Moneda"><Seg value={f.moneda} onChange={v => set({ moneda: v })} options={[['ARS', '$'], ['USD', 'US$']]} /></Field>
+        <Field label="Moneda">
+          <select class="inp" value={f.moneda} onChange={e => set({ moneda: e.currentTarget.value as Moneda })}>
+            {MONEDA_IDS.map(c => <option value={c}>{MONEDAS[c].simbolo} {MONEDAS[c].nombre}</option>)}
+          </select>
+        </Field>
       </div>
       <Field label="Monto total a devolver"><input class="inp" inputmode="decimal" value={f.original} onInput={e => set({ original: e.currentTarget.value })} /></Field>
       <div class="grid2">
@@ -149,7 +173,7 @@ export function PmovForm({ prestamoId, x }: { prestamoId: string; x?: Pmov }) {
       guardar('movs', {
         id: newId(), tipo: 'gasto', fecha, persona, desc: `Pago ${p.nombre}`,
         cat: h.categorias.includes('Deudas/Cuotas') ? 'Deudas/Cuotas' : h.categorias[0],
-        monto: n, moneda: p.moneda, tc: p.moneda === 'USD' ? +ultimoTC() || 0 : 1, medio: 'Transferencia', notas: nota.trim() || undefined,
+        monto: n, moneda: p.moneda, medio: 'Transferencia', notas: nota.trim() || undefined,
       });
     }
     openSheet(<PrestamoDetalle id={prestamoId} />);
@@ -159,7 +183,7 @@ export function PmovForm({ prestamoId, x }: { prestamoId: string; x?: Pmov }) {
     <form onSubmit={save}>
       <h3>{x ? 'Editar' : 'Registrar'} · {p.nombre}</h3>
       <Seg value={tipo} onChange={v => { setTipo(v); }} options={TIPOS.map(t => [t, t])} />
-      <Field label={`Monto (${p.moneda === 'USD' ? 'US$' : '$'})`}><input class="inp amount" inputmode="decimal" value={monto} onInput={e => setMonto(e.currentTarget.value)} /></Field>
+      <Field label={`Monto (${MONEDAS[p.moneda].simbolo})`}><input class="inp amount" inputmode="decimal" value={monto} onInput={e => setMonto(e.currentTarget.value)} /></Field>
       <div class="grid2">
         <Field label="Fecha"><input type="date" class="inp" value={fecha} onInput={e => setFecha(e.currentTarget.value)} /></Field>
         <Field label="Cuotas que cubre"><input class="inp" inputmode="numeric" value={cuotas} onInput={e => setCuotas(e.currentTarget.value)} /></Field>
