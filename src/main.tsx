@@ -1,6 +1,5 @@
 import { render } from 'preact';
 import './styles.css';
-import { actualizarDolar } from './lib/dolar';
 import { App } from './ui/App';
 import { capturarInvitacion } from './ui/invite';
 import { closeSheet } from './ui/state';
@@ -11,8 +10,6 @@ try {
 } catch { /* sin almacenamiento */ }
 
 capturarInvitacion();
-actualizarDolar();
-setInterval(actualizarDolar, 30 * 60_000);
 addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
 
 // Limpia la caché de la versión 1 de la app.

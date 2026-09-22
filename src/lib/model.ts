@@ -1,6 +1,5 @@
 export type Moneda = 'ARS' | 'USD';
 export type TipoMov = 'gasto' | 'ingreso' | 'ahorro';
-export type Casa = 'oficial' | 'blue' | 'bolsa' | 'tarjeta';
 export type TipoPmov = 'Pago' | 'Interés' | 'Ajuste' | 'Pago previo';
 
 export interface Mov {
@@ -54,7 +53,6 @@ export interface Hogar {
   categorias: string[];
   medios: string[];
   fuentesIngreso: string[];
-  cotizacion: Casa;
 }
 
 export const CAT_ICON: Record<string, string> = {

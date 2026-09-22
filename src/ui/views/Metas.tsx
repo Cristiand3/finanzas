@@ -1,5 +1,4 @@
 import { metaAhorrado, sum } from '../../lib/calc';
-import { cotizaciones } from '../../lib/dolar';
 import { fmt, pct } from '../../lib/format';
 import { hogar, metas, movs } from '../../lib/store';
 import { Bar } from '../common';
@@ -8,13 +7,13 @@ import { openSheet } from '../state';
 
 export function Metas() {
   const h = hogar.value!;
-  const usd = cotizaciones.value[h.cotizacion]?.venta || 0;
-  const enPesos = sum(metas.value, m => metaAhorrado(movs.value, m) * (m.moneda === 'USD' ? usd : 1));
+  const totalPesos = sum(metas.value.filter(m => m.moneda === 'ARS'), m => metaAhorrado(movs.value, m));
+  const totalDolares = sum(metas.value.filter(m => m.moneda === 'USD'), m => metaAhorrado(movs.value, m));
   return (
     <>
       <div class="card feature">
-        <div class="stat big"><div class="l">Total ahorrado</div><div class="v">{fmt(enPesos)}</div></div>
-        {usd > 0 && <div class="hint">≈ {fmt(enPesos / usd, 'USD')} al dólar de hoy</div>}
+        <div class="stat big"><div class="l">Total ahorrado</div><div class="v">{fmt(totalPesos)}</div></div>
+        {totalDolares > 0 && <div class="hint">más {fmt(totalDolares, 'USD')} en dólares</div>}
       </div>
       {metas.value.map(m => {
         const a = metaAhorrado(movs.value, m);

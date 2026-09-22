@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { shiftMonth, todayISO, ym } from '../../lib/calc';
-import { tcDe } from '../../lib/dolar';
+import { recordarTC, ultimoTC } from '../../lib/tc';
 import { fmt, monthName, parseAmt } from '../../lib/format';
 import { CAT_ICON, type Moneda, type Mov, type TipoMov } from '../../lib/model';
 import { borrar, guardar, hogar, metas, miPersona, newId, toast } from '../../lib/store';
@@ -20,7 +20,7 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
   const [m, setM] = useState<Mov>(init);
   const nuevo = !m.id; // también al duplicar
   const [montoTxt, setMontoTxt] = useState(mov ? String(mov.monto).replace('.', ',') : '');
-  const [tcTxt, setTcTxt] = useState(String(init.moneda === 'USD' ? init.tc : tcDe(h.cotizacion) || ''));
+  const [tcTxt, setTcTxt] = useState(init.moneda === 'USD' ? String(init.tc) : ultimoTC());
   const set = (p: Partial<Mov>) => setM(x => ({ ...x, ...p }));
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { if (!mov) setTimeout(() => ref.current?.focus(), 250); }, []);
@@ -41,7 +41,8 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
     e?.preventDefault();
     if (!monto) { toast('Ingresá un monto'); return; }
     const tc = moneda === 'USD' ? parseAmt(tcTxt) : 1;
-    if (moneda === 'USD' && !tc) { toast('Ingresá la cotización del dólar'); return; }
+    if (moneda === 'USD' && !tc) { toast('Escribí a cuánto tomás el dólar'); return; }
+    if (moneda === 'USD') recordarTC(tc);
     const out: Mov = {
       id: m.id || newId(), tipo: m.tipo, fecha: m.fecha || hoy, persona: m.persona, desc: m.desc.trim(), cat: m.cat,
       monto, moneda, tc, notas: m.notas?.trim() || undefined,
@@ -75,9 +76,9 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
         </div>
       </Field>
       {moneda === 'USD' && (
-        <Field label="Cotización (pesos por dólar)">
-          <input class="inp" inputmode="decimal" value={tcTxt} onInput={e => setTcTxt(e.currentTarget.value)} />
-          {monto > 0 && parseAmt(tcTxt) > 0 && <span class="hint">≈ {fmt(monto * parseAmt(tcTxt))}</span>}
+        <Field label="¿A cuánto tomás el dólar?">
+          <input class="inp" inputmode="decimal" value={tcTxt} onInput={e => setTcTxt(e.currentTarget.value)} placeholder="Ej: 1500" />
+          <span class="hint">{monto > 0 && parseAmt(tcTxt) > 0 ? `Son ${fmt(monto * parseAmt(tcTxt))} · solo se usa para sumarlo con tus gastos en pesos` : 'Se usa solo para sumarlo con tus gastos en pesos.'}</span>
         </Field>
       )}
 

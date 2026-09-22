@@ -1,5 +1,4 @@
 import { cuotasFuturas, metaAhorrado, prestamoCalc, resumen, sum } from '../../lib/calc';
-import { CASAS, cotizaciones } from '../../lib/dolar';
 import { fmt, monthShort, pct } from '../../lib/format';
 import { CAT_ICON } from '../../lib/model';
 import { hogar, metas, movs, pmovs, prestamos } from '../../lib/store';
@@ -13,7 +12,6 @@ export function Inicio() {
   const cf = cuotasFuturas(movs.value.filter(m => filtroPersona.value === 'Todos' || m.persona === filtroPersona.value), mes.value, 6);
   const maxCol = Math.max(1, ...cf.proximos.map(p => p.total));
   const deudas = prestamos.value.map(p => ({ p, c: prestamoCalc(p, pmovs.value, mes.value) }));
-  const dolar = cotizaciones.value[h.cotizacion];
 
   return (
     <>
@@ -82,14 +80,14 @@ export function Inicio() {
 
       {deudas.length > 0 && (
         <div class="card tap" onClick={() => (tab.value = 'deudas')}><h2>Préstamos</h2>
-          <div class="row"><div class="t">Saldo total</div><div class="num out">{fmt(sum(deudas, d => d.c.saldo * (d.p.moneda === 'USD' ? cotizaciones.value[h.cotizacion]?.venta || 0 : 1)))}</div></div>
+          <div class="row"><div class="t">Saldo total</div><div class="num out">{fmt(sum(deudas.filter(d => d.p.moneda === 'ARS'), d => d.c.saldo))}</div></div>
+          {deudas.some(d => d.p.moneda === 'USD') && (
+            <div class="row"><div class="t">Saldo en dólares</div><div class="num out">{fmt(sum(deudas.filter(d => d.p.moneda === 'USD'), d => d.c.saldo), 'USD')}</div></div>
+          )}
           <div class="row"><div class="t">Pagado este mes</div><div class="num">{fmt(sum(deudas.filter(d => d.p.moneda === 'ARS'), d => d.c.pagoMes))}</div></div>
         </div>
       )}
 
-      {dolar && (
-        <p class="hint" style={{ textAlign: 'center' }}>Dólar {CASAS[h.cotizacion]}: {fmt(dolar.venta)} · actualizado {new Date(dolar.fecha).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
-      )}
     </>
   );
 }

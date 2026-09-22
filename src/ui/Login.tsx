@@ -64,7 +64,7 @@ export function Login({ invitado }: { invitado: boolean }) {
       {modo === 'inicio' && !invitado && (
         <ul class="perks">
           <li><b>💳</b><span>Cuotas que se reparten solas mes a mes</span></li>
-          <li><b>💵</b><span>Pesos y dólares con la cotización del día</span></li>
+          <li><b>💵</b><span>Gastos y ahorros en pesos o en dólares</span></li>
           <li><b>👫</b><span>Compartido con tu pareja, en tiempo real</span></li>
         </ul>
       )}

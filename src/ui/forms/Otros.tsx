@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { prestamoCalc, todayISO } from '../../lib/calc';
-import { tcDe } from '../../lib/dolar';
+import { ultimoTC } from '../../lib/tc';
 import { fmt, parseAmt } from '../../lib/format';
 import type { Hogar, Meta, Moneda, Pmov, Prestamo, TipoPmov } from '../../lib/model';
 import { actualizarHogar, borrar, guardar, hogar, miPersona, movs, newId, pmovs, prestamos, setPersona, toast } from '../../lib/store';
@@ -149,7 +149,7 @@ export function PmovForm({ prestamoId, x }: { prestamoId: string; x?: Pmov }) {
       guardar('movs', {
         id: newId(), tipo: 'gasto', fecha, persona, desc: `Pago ${p.nombre}`,
         cat: h.categorias.includes('Deudas/Cuotas') ? 'Deudas/Cuotas' : h.categorias[0],
-        monto: n, moneda: p.moneda, tc: p.moneda === 'USD' ? tcDe(h.cotizacion) : 1, medio: 'Transferencia', notas: nota.trim() || undefined,
+        monto: n, moneda: p.moneda, tc: p.moneda === 'USD' ? +ultimoTC() || 0 : 1, medio: 'Transferencia', notas: nota.trim() || undefined,
       });
     }
     openSheet(<PrestamoDetalle id={prestamoId} />);

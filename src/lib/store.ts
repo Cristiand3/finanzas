@@ -115,7 +115,7 @@ export async function crearHogar(nombre: string, personas: string[]) {
   const h: Omit<Hogar, 'id'> & { creado: unknown } = {
     nombre, owner: uid(), miembros: [uid()], invite: randomCode(), personas,
     categorias: DEFAULTS.categorias, medios: DEFAULTS.medios, fuentesIngreso: DEFAULTS.fuentesIngreso,
-    cotizacion: 'blue', creado: serverTimestamp(),
+    creado: serverTimestamp(),
   };
   await setDoc(doc(db, 'hogares', id), h);
   const b = writeBatch(db);

@@ -1,10 +1,8 @@
 import { useRef, useState } from 'preact/hooks';
 import { lineasDelMes, todayISO } from '../../lib/calc';
-import { actualizarDolar, CASAS, cotizaciones } from '../../lib/dolar';
-import { fmt } from '../../lib/format';
-import type { Casa } from '../../lib/model';
+
 import {
-  actualizarHogar, cerrarSesion, eliminarCuenta, hogar, importar, linkInvitacion, metas, miPersona, movs, nuevoEnlace,
+  cerrarSesion, eliminarCuenta, hogar, importar, linkInvitacion, metas, miPersona, movs, nuevoEnlace,
   pmovs, prestamos, salirDelHogar, setPersona, toast, user,
 } from '../../lib/store';
 import { Seg } from '../common';
@@ -106,15 +104,6 @@ export function Ajustes() {
             <div><div class="t">{l}</div><div class="s">{h[k].slice(0, 4).join(', ')}{h[k].length > 4 ? '…' : ''}</div></div><span>›</span>
           </div>
         ))}
-      </div>
-
-      <div class="card"><h2>Dólar</h2>
-        <p class="hint" style={{ marginTop: 0 }}>Cotización que se usa para pasar dólares a pesos.</p>
-        <Seg<Casa> value={h.cotizacion} onChange={c => actualizarHogar({ cotizacion: c })} options={(Object.keys(CASAS) as Casa[]).map(c => [c, CASAS[c]])} />
-        {(Object.keys(CASAS) as Casa[]).map(c => cotizaciones.value[c] && (
-          <div class="row"><span>{CASAS[c]}</span><span class="num">{fmt(cotizaciones.value[c]!.venta)}</span></div>
-        ))}
-        <button class="link" onClick={() => actualizarDolar().then(() => toast('Cotización actualizada'))}>Actualizar ahora</button>
       </div>
 
       <div class="card"><h2>Apariencia</h2>
