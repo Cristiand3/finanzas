@@ -66,7 +66,7 @@ export const CAT_ICON: Record<string, string> = {
 export const DEFAULTS = {
   categorias: ['Alimentación', 'Transporte', 'Servicios', 'Hogar', 'Salud & Estética', 'Ropa & Accesorios',
     'Entretenimiento', 'Gym & Bienestar', 'Mascotas', 'Educación', 'Deudas/Cuotas', 'Trabajo', 'Regalos', 'Otros'],
-  medios: ['Efectivo', 'Débito', 'Crédito', 'Transferencia', 'Mercado Pago', 'Ualá', 'Cuenta DNI', 'Otro'],
+  medios: ['Efectivo', 'Débito', 'Crédito', 'Transferencia', 'Billeteras virtuales', 'Otro'],
   fuentesIngreso: ['Sueldo', 'Extra', 'Otros'],
   metas: ['Fondo de emergencia', 'Viaje / vacaciones', 'Proyecto hogar', 'Ahorro largo plazo'],
 };
