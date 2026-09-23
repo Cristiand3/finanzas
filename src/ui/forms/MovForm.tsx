@@ -17,8 +17,10 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
     ...preset,
   };
   const [m, setM] = useState<Mov>(init);
+  // El teclado numérico del celular no tiene "−": los retiros se marcan con este botón.
+  const [retiro, setRetiro] = useState(!!mov && mov.tipo === 'ahorro' && mov.monto < 0);
   const nuevo = !m.id; // también al duplicar
-  const [montoTxt, setMontoTxt] = useState(mov ? formatMiles(String(mov.monto).replace('.', ',')) : '');
+  const [montoTxt, setMontoTxt] = useState(mov ? formatMiles(String(Math.abs(mov.monto)).replace('.', ',')) : '');
   const set = (p: Partial<Mov>) => setM(x => ({ ...x, ...p }));
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { if (!mov) setTimeout(() => ref.current?.focus(), 250); }, []);
@@ -40,7 +42,9 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
     if (!monto) { toast('Ingresá un monto'); return; }
     const out: Mov = {
       id: m.id || newId(), tipo: m.tipo, fecha: m.fecha || hoy, persona: m.persona, desc: m.desc.trim(), cat: m.cat,
-      monto, moneda, notas: m.notas?.trim() || undefined,
+      // Solo el ahorro puede ser negativo (un retiro); un gasto o ingreso siempre suma.
+      monto: m.tipo === 'ahorro' ? (retiro ? -Math.abs(monto) : Math.abs(monto)) : Math.abs(monto),
+      moneda, notas: m.notas?.trim() || undefined,
     };
     if (m.tipo === 'gasto') {
       out.medio = m.medio;
@@ -130,7 +134,11 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
               {metas.value.map(x => <option value={x.id}>{x.nombre}</option>)}
             </select>
           </Field>
-          <p class="hint">El aporte se suma a la meta en la moneda que elegiste arriba. Para registrar un retiro, cargá el monto en negativo (ej: −50000).</p>
+          <Field label="¿Qué estás cargando?">
+            <Seg value={retiro ? 'retiro' : 'aporte'} onChange={v => setRetiro(v === 'retiro')}
+              options={[['aporte', 'Aporte a la meta'], ['retiro', 'Retiro de la meta']]} />
+          </Field>
+          <p class="hint">{retiro ? 'El retiro se resta de lo que llevás juntado.' : 'El aporte se suma a la meta en la moneda que elegiste arriba.'}</p>
         </>
       )}
 

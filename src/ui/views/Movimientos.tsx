@@ -40,16 +40,17 @@ export function Movimientos() {
 function Fila({ l }: { l: Linea }) {
   const m = l.mov;
   const icon = m.tipo === 'gasto' ? CAT_ICON[m.cat] || '📦' : m.tipo === 'ingreso' ? '💰' : '🎯';
-  const title = m.desc || (m.tipo === 'ahorro' ? metas.value.find(x => x.id === m.meta)?.nombre || 'Ahorro' : m.cat);
+  const meta = metas.value.find(x => x.id === m.meta)?.nombre;
+  const title = m.desc || (m.tipo === 'ahorro' ? (m.monto < 0 ? `Retiro de ${meta || 'la meta'}` : meta || 'Ahorro') : m.cat);
   const sub = [m.persona, m.tipo === 'gasto' && m.desc ? m.cat : null, m.medio].filter(Boolean).join(' · ');
   const cls = m.tipo === 'gasto' ? 'out' : m.tipo === 'ingreso' ? 'in' : 'save';
-  const signo = m.tipo === 'gasto' ? '−' : '+';
+  const signo = m.tipo === 'gasto' || l.monto < 0 ? '−' : '+';
   return (
     <button class="mov" onClick={() => openSheet(<MovForm mov={m} />)}>
       <div class="dot">{icon}</div>
       <div class="m"><div class="t">{title}</div><div class="s">{sub}</div></div>
       <div class="r">
-        <div class={`num ${cls}`}>{signo}{fmt(l.monto, m.moneda)}</div>
+        <div class={`num ${cls}`}>{signo}{fmt(Math.abs(l.monto), m.moneda)}</div>
         {l.cuota && <span class="pill">Cuota {l.cuota.k}/{l.cuota.n}</span>}
       </div>
     </button>
