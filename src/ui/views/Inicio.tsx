@@ -1,4 +1,4 @@
-import { cuotasFuturas, prestamoCalc, progresoMeta, resumen, saldos, sum } from '../../lib/calc';
+import { cuotasFuturas, prestamoCalc, progresoMeta, resumen, saldos, saldosPorPersona, sum } from '../../lib/calc';
 import { fmt, monthName, monthShort, pct } from '../../lib/format';
 import { AMBOS, CAT_ICON, cuentasDe, cuentasVisibles, MONEDAS, MONEDA_IDS, TIPOS_CUENTA } from '../../lib/model';
 import { hogar, metas, movs, pmovs, prestamos } from '../../lib/store';
@@ -21,6 +21,7 @@ export function Inicio() {
   const disponible = sum(misCuentas.filter(s => TIPOS_CUENTA[s.cuenta.tipo].disponible), s => s.saldo);
   const invertido = sum(misCuentas.filter(s => !TIPOS_CUENTA[s.cuenta.tipo].disponible), s => s.saldo);
   const total = disponible + invertido; // lo apartado en metas se ve en la pestaña Metas
+  const porPersona = saldosPorPersona(movs.value, cuentasDe(h), h.personas, moneda);
   const otras = MONEDA_IDS.filter(c => c !== moneda && resumen(movs.value, mes.value, filtroPersona.value, c).lineas.length > 0);
   const variacion = r.variacionCuentas;
 
@@ -38,6 +39,17 @@ export function Inicio() {
           </div>
         ))}
         {!misCuentas.length && <p class="hint">{filtroPersona.value} todavía no tiene cuentas propias. Podés crearle una o marcar alguna como suya.</p>}
+        {filtroPersona.value === 'Todos' && h.personas.length > 1 && (
+          <>
+            <div class="f-label" style={{ marginTop: 12 }}>Cuánto tiene cada uno</div>
+            {porPersona.map(p => (
+              <div class="row">
+                <span>{p.compartida ? '👫 Compartido' : `👤 ${p.nombre}`}</span>
+                <span class={`num ${p.total < 0 ? 'out' : ''}`}>{fmt(p.total, moneda)}</span>
+              </div>
+            ))}
+          </>
+        )}
         <button class="btn ghost sm" style={{ width: '100%', marginTop: 10 }}
           onClick={e => { e.stopPropagation(); openSheet(<SaldosDeHoy />); }}>Poner mis saldos de hoy</button>
         <p class="hint" style={{ marginBottom: 0, marginTop: 10 }}>

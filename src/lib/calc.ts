@@ -1,4 +1,4 @@
-import type { Cuenta, Meta, Moneda, Mov, Pmov, Prestamo } from './model';
+import { AMBOS, type Cuenta, type Meta, type Moneda, type Mov, type Pmov, type Prestamo } from './model';
 
 // ---------- fechas ----------
 export const ym = (iso: string) => iso.slice(0, 7);
@@ -202,4 +202,13 @@ export function gruposSinCuenta(movs: Mov[]) {
     grupos.get(clave)!.movs.push(m);
   }
   return [...grupos.values()].sort((a, b) => b.movs.length - a.movs.length);
+}
+
+/** Cuánto tiene cada integrante del hogar: sus cuentas, y lo compartido aparte. */
+export function saldosPorPersona(movs: Mov[], cuentas: Cuenta[], personas: string[], moneda: Moneda = 'ARS', hoy = todayISO()) {
+  const lista = saldos(movs, cuentas, moneda, hoy);
+  const propio = (p: string) => sum(lista.filter(s => s.cuenta.persona === p), s => s.saldo);
+  const compartido = sum(lista.filter(s => !s.cuenta.persona || s.cuenta.persona === AMBOS), s => s.saldo);
+  const filas = personas.map(p => ({ nombre: p, total: propio(p), compartida: false }));
+  return compartido !== 0 ? [...filas, { nombre: 'Compartido', total: compartido, compartida: true }] : filas;
 }
