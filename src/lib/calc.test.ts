@@ -237,10 +237,10 @@ describe('cuentas por persona', () => {
     { id: 'c3', nombre: 'Caja común', tipo: 'banco' as const, persona: 'Ambos' },
     { id: 'c4', nombre: 'Vieja sin dueño', tipo: 'banco' as const },
   ];
-  it('cada uno ve las suyas y las compartidas; en Todos están todas', () => {
+  it('cada uno ve solo las suyas; las compartidas quedan para Todos', () => {
     expect(cuentasVisibles(cuentas, 'Todos').map(c => c.id)).toEqual(['c1', 'c2', 'c3', 'c4']);
-    expect(cuentasVisibles(cuentas, 'Cristian').map(c => c.id)).toEqual(['c1', 'c3', 'c4']);
-    expect(cuentasVisibles(cuentas, 'Camila').map(c => c.id)).toEqual(['c2', 'c3', 'c4']);
+    expect(cuentasVisibles(cuentas, 'Cristian').map(c => c.id)).toEqual(['c1']);
+    expect(cuentasVisibles(cuentas, 'Camila').map(c => c.id)).toEqual(['c2']);
   });
 });
 

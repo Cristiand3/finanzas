@@ -27,7 +27,7 @@ export function CuentasSheet() {
       </div>
       <div class="row"><b>Total en cuentas</b><b class="num">{fmt(total(lista), moneda)}</b></div>
       {MONEDA_IDS.length > 1 && <p class="hint">Saldos en {MONEDAS[moneda].nombre.toLowerCase()}. Para ver otra moneda, cambiala en Inicio.</p>}
-      {filtroPersona.value !== 'Todos' && <p class="hint">Estás viendo las cuentas de {filtroPersona.value} y las compartidas.</p>}
+      {filtroPersona.value !== 'Todos' && <p class="hint">Estás viendo solo las cuentas de {filtroPersona.value}. Las compartidas se ven con el filtro en <b>Todos</b>.</p>}
 
       <div class="card" style={{ boxShadow: 'none' }}>
         {lista.map(s => (
