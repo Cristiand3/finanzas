@@ -1,10 +1,10 @@
 import { useState } from 'preact/hooks';
 import { gruposSinCuenta, saldos, sinCuenta, todayISO } from '../../lib/calc';
 import { fmt, formatMiles, parseAmt } from '../../lib/format';
-import { cuentasDe, MONEDAS, MONEDA_IDS, SUGERENCIAS_INVERSION, TIPOS_CUENTA, type Cuenta, type Moneda, type TipoCuenta } from '../../lib/model';
+import { AMBOS, cuentasDe, cuentasVisibles, MONEDAS, MONEDA_IDS, SUGERENCIAS_INVERSION, TIPOS_CUENTA, type Cuenta, type Moneda, type TipoCuenta } from '../../lib/model';
 import { actualizarHogar, guardar, hogar, miPersona, movs, newId, toast } from '../../lib/store';
 import { Field, MontoInput, Seg, SheetFooter } from '../common';
-import { closeSheet, monedaVista, openSheet } from '../state';
+import { closeSheet, filtroPersona, monedaVista, openSheet } from '../state';
 
 const TIPO_IDS = Object.keys(TIPOS_CUENTA) as TipoCuenta[];
 
@@ -12,7 +12,7 @@ export function CuentasSheet() {
   const h = hogar.value!;
   const cuentas = cuentasDe(h);
   const moneda = monedaVista.value;
-  const lista = saldos(movs.value, cuentas, moneda);
+  const lista = saldos(movs.value, cuentasVisibles(cuentas, filtroPersona.value), moneda);
   const disponible = lista.filter(s => TIPOS_CUENTA[s.cuenta.tipo].disponible);
   const invertido = lista.filter(s => !TIPOS_CUENTA[s.cuenta.tipo].disponible);
   const total = (xs: typeof lista) => xs.reduce((t, s) => t + s.saldo, 0);
@@ -27,13 +27,15 @@ export function CuentasSheet() {
       </div>
       <div class="row"><b>Total en cuentas</b><b class="num">{fmt(total(lista), moneda)}</b></div>
       {MONEDA_IDS.length > 1 && <p class="hint">Saldos en {MONEDAS[moneda].nombre.toLowerCase()}. Para ver otra moneda, cambiala en Inicio.</p>}
+      {filtroPersona.value !== 'Todos' && <p class="hint">Estás viendo las cuentas de {filtroPersona.value} y las compartidas.</p>}
 
       <div class="card" style={{ boxShadow: 'none' }}>
         {lista.map(s => (
           <div class="row tap" onClick={() => openSheet(<CuentaForm cuenta={s.cuenta} />)}>
             <div>
               <div class="t">{TIPOS_CUENTA[s.cuenta.tipo].icono} {s.cuenta.nombre}</div>
-              <div class="s">{TIPOS_CUENTA[s.cuenta.tipo].nombre}{TIPOS_CUENTA[s.cuenta.tipo].disponible ? '' : ' · no cuenta como disponible'}</div>
+              <div class="s">{[TIPOS_CUENTA[s.cuenta.tipo].nombre, s.cuenta.persona && s.cuenta.persona !== AMBOS ? `de ${s.cuenta.persona}` : 'compartida',
+                TIPOS_CUENTA[s.cuenta.tipo].disponible ? '' : 'no cuenta como disponible'].filter(Boolean).join(' · ')}</div>
             </div>
             <div class={`num ${s.saldo < 0 ? 'out' : ''}`}>{fmt(s.saldo, moneda)}</div>
           </div>
@@ -66,6 +68,7 @@ export function CuentaForm({ cuenta, tipoInicial }: { cuenta?: Cuenta; tipoInici
   const cuentas = cuentasDe(h);
   const [nombre, setNombre] = useState(cuenta?.nombre || '');
   const [tipo, setTipo] = useState<TipoCuenta>(cuenta?.tipo || tipoInicial || 'banco');
+  const [persona, setPersona] = useState(cuenta?.persona || (filtroPersona.value !== 'Todos' ? filtroPersona.value : AMBOS));
   const [iniciales, setIniciales] = useState<Partial<Record<Moneda, string>>>(() => {
     const o: Partial<Record<Moneda, string>> = {};
     for (const c of MONEDA_IDS) if (cuenta?.inicial?.[c]) o[c] = formatMiles(String(cuenta.inicial[c]));
@@ -81,7 +84,7 @@ export function CuentaForm({ cuenta, tipoInicial }: { cuenta?: Cuenta; tipoInici
     const inicial: Partial<Record<Moneda, number>> = {};
     for (const c of usadas) { const v = parseAmt(iniciales[c] || ''); if (v) inicial[c] = v; }
     const nueva: Cuenta = {
-      id: cuenta?.id || newId(), nombre: nombre.trim(), tipo, inicial,
+      id: cuenta?.id || newId(), nombre: nombre.trim(), tipo, persona, inicial,
       orden: cuenta?.orden ?? cuentas.length,
     };
     actualizarHogar({ cuentas: cuenta ? cuentas.map(c => (c.id === cuenta.id ? nueva : c)) : [...cuentas, nueva] });
@@ -101,6 +104,11 @@ export function CuentaForm({ cuenta, tipoInicial }: { cuenta?: Cuenta; tipoInici
     <form onSubmit={guardarCuenta}>
       <h3>{cuenta ? 'Editar cuenta' : 'Nueva cuenta'}</h3>
       <Field label="Nombre"><input class="inp" value={nombre} onInput={e => setNombre(e.currentTarget.value)} placeholder="Ej: Banco Nación, FCI Mercado Pago" /></Field>
+      <Field label="¿De quién es?">
+        <select class="inp" value={persona} onChange={e => setPersona(e.currentTarget.value)}>
+          {[AMBOS, ...h.personas].map(p => <option value={p}>{p === AMBOS ? 'Compartida (las ve todo el hogar)' : p}</option>)}
+        </select>
+      </Field>
       <Field label="Tipo">
         <Seg value={tipo} onChange={setTipo} options={TIPO_IDS.map(t => [t, TIPOS_CUENTA[t].nombre])} />
       </Field>
@@ -228,7 +236,7 @@ export function SaldosDeHoy() {
   const h = hogar.value!;
   const cuentas = cuentasDe(h);
   const moneda = monedaVista.value;
-  const actuales = saldos(movs.value, cuentas, moneda);
+  const actuales = saldos(movs.value, cuentasVisibles(cuentas, filtroPersona.value), moneda);
   const [txt, setTxt] = useState<Record<string, string>>(
     () => Object.fromEntries(actuales.map(s => [s.cuenta.id, formatMiles(String(Math.round(s.saldo)))])),
   );

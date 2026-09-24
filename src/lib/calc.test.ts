@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { apartadoEnMetas, cuotasFuturas, lineaDelMes, monedasUsadas, monthsBetween, prestamoCalc, progresoMeta, resumen, saldos, shiftMonth, sinCuenta, sum } from './calc';
-import { conObjetivos, type Meta, type Mov } from './model';
+import { conObjetivos, cuentasVisibles, type Meta, type Mov } from './model';
 
 const mov = (p: Partial<Mov>): Mov => ({
   id: Math.random().toString(36), tipo: 'gasto', fecha: '2026-09-10', persona: 'A', desc: '', cat: 'Otros',
@@ -227,5 +227,19 @@ describe('los saldos y el resumen del mes cierran entre sí', () => {
     expect(patrimonio('2026-09-30')).toBe(
       sum(saldos(sinInternos, cuentas, 'ARS', '2026-09-30'), s => s.saldo) + apartadoEnMetas(sinInternos, 'ARS', '2026-09-30'),
     );
+  });
+});
+
+describe('cuentas por persona', () => {
+  const cuentas = [
+    { id: 'c1', nombre: 'Efectivo Cristian', tipo: 'efectivo' as const, persona: 'Cristian' },
+    { id: 'c2', nombre: 'Banco Camila', tipo: 'banco' as const, persona: 'Camila' },
+    { id: 'c3', nombre: 'Caja común', tipo: 'banco' as const, persona: 'Ambos' },
+    { id: 'c4', nombre: 'Vieja sin dueño', tipo: 'banco' as const },
+  ];
+  it('cada uno ve las suyas y las compartidas; en Todos están todas', () => {
+    expect(cuentasVisibles(cuentas, 'Todos').map(c => c.id)).toEqual(['c1', 'c2', 'c3', 'c4']);
+    expect(cuentasVisibles(cuentas, 'Cristian').map(c => c.id)).toEqual(['c1', 'c3', 'c4']);
+    expect(cuentasVisibles(cuentas, 'Camila').map(c => c.id)).toEqual(['c2', 'c3', 'c4']);
   });
 });
