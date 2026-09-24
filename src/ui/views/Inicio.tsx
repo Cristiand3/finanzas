@@ -1,9 +1,10 @@
-import { cuotasFuturas, prestamoCalc, progresoMeta, resumen, sum } from '../../lib/calc';
+import { cuotasFuturas, prestamoCalc, progresoMeta, resumen, saldos, sum } from '../../lib/calc';
 import { fmt, monthShort, pct } from '../../lib/format';
-import { CAT_ICON, MONEDAS, MONEDA_IDS } from '../../lib/model';
+import { CAT_ICON, cuentasDe, MONEDAS, MONEDA_IDS, TIPOS_CUENTA } from '../../lib/model';
 import { hogar, metas, movs, pmovs, prestamos } from '../../lib/store';
 import { Bar } from '../common';
-import { filtroPersona, mes, monedaVista, tab } from '../state';
+import { CuentasSheet } from '../forms/Cuentas';
+import { filtroPersona, mes, monedaVista, openSheet, tab } from '../state';
 
 export function Inicio() {
   const h = hogar.value!;
@@ -16,10 +17,24 @@ export function Inicio() {
   );
   const maxCol = Math.max(1, ...cf.proximos.map(p => p.total));
   const deudas = prestamos.value.map(p => ({ p, c: prestamoCalc(p, pmovs.value, mes.value) })).filter(d => d.p.moneda === moneda);
+  const misCuentas = saldos(movs.value, cuentasDe(h), moneda);
+  const disponible = sum(misCuentas.filter(s => TIPOS_CUENTA[s.cuenta.tipo].disponible), s => s.saldo);
+  const invertido = sum(misCuentas.filter(s => !TIPOS_CUENTA[s.cuenta.tipo].disponible), s => s.saldo);
   const otras = MONEDA_IDS.filter(c => c !== moneda && resumen(movs.value, mes.value, filtroPersona.value, c).lineas.length > 0);
 
   return (
     <>
+      <div class="card tap" onClick={() => openSheet(<CuentasSheet />)}>
+        <h2>Mis saldos</h2>
+        <div class="hero">
+          <div class="stat"><div class="l">Disponible</div><div class="v">{fmt(disponible, moneda)}</div></div>
+          {invertido !== 0 && <div class="stat"><div class="l">Invertido</div><div class="v save">{fmt(invertido, moneda)}</div></div>}
+        </div>
+        {misCuentas.map(s => (
+          <div class="row"><span>{TIPOS_CUENTA[s.cuenta.tipo].icono} {s.cuenta.nombre}</span><span class={`num ${s.saldo < 0 ? 'out' : ''}`}>{fmt(s.saldo, moneda)}</span></div>
+        ))}
+      </div>
+
       <div class="card feature">
         <div class="stat big"><div class="l">Te queda libre este mes</div><div class="v">{fmt(r.libre, moneda)}</div></div>
         <div class="hint" style={{ marginTop: 4 }}>Ingresos − gastos − ahorro{moneda !== 'ARS' ? ` · en ${MONEDAS[moneda].nombre.toLowerCase()}` : ''}</div>

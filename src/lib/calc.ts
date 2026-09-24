@@ -1,4 +1,4 @@
-import type { Meta, Moneda, Mov, Pmov, Prestamo } from './model';
+import type { Cuenta, Meta, Moneda, Mov, Pmov, Prestamo } from './model';
 
 // ---------- fechas ----------
 export const ym = (iso: string) => iso.slice(0, 7);
@@ -128,3 +128,48 @@ export function prestamoCalc(p: Prestamo, pmovs: Pmov[], mes: string) {
   const pagoMes = sum(mv.filter(x => x.tipo === 'Pago' && ym(x.fecha) === mes), x => x.monto);
   return { mv, total, pagado, saldo, cuotasPagadas, restantes, sugerido, pagoMes, progreso: total ? pagado / total : 0 };
 }
+
+// ---------- saldos por cuenta ----------
+/**
+ * Movimiento de plata que produce un movimiento sobre una cuenta.
+ * Un gasto en cuotas descuenta la cuota de cada mes, no todo junto.
+ */
+function efectoEnCuentas(m: Mov, hastaMes: string, hoy: string): { cuenta: string; delta: number }[] {
+  const cuotas = m.tipo === 'gasto' ? m.cuotas || 1 : 1;
+  const out: { cuenta: string; delta: number }[] = [];
+  if (m.tipo === 'transferencia') {
+    if (m.fecha > hoy) return out;
+    if (m.cuenta) out.push({ cuenta: m.cuenta, delta: -m.monto });
+    if (m.cuentaDestino) out.push({ cuenta: m.cuentaDestino, delta: m.monto });
+    return out;
+  }
+  if (!m.cuenta) return out; // movimientos viejos, sin cuenta asignada
+  if (cuotas > 1) {
+    const desde = m.desde || ym(m.fecha);
+    const pagadas = Math.min(cuotas, Math.max(0, monthsBetween(desde, hastaMes) + 1));
+    if (pagadas > 0) out.push({ cuenta: m.cuenta, delta: -(m.monto / cuotas) * pagadas });
+    return out;
+  }
+  if (m.fecha > hoy) return out;
+  const signo = m.tipo === 'ingreso' ? 1 : -1; // el ahorro sale de la cuenta; un retiro (monto negativo) vuelve
+  out.push({ cuenta: m.cuenta, delta: signo * m.monto });
+  return out;
+}
+
+export interface SaldoCuenta { cuenta: Cuenta; saldo: number }
+/** Cuánta plata hay hoy en cada cuenta, en una moneda. */
+export function saldos(movs: Mov[], cuentas: Cuenta[], moneda: Moneda = 'ARS', hoy = todayISO()): SaldoCuenta[] {
+  const hastaMes = ym(hoy);
+  const porCuenta = new Map<string, number>();
+  for (const c of cuentas) porCuenta.set(c.id, c.inicial?.[moneda] || 0);
+  for (const m of movs) {
+    if (m.moneda !== moneda) continue;
+    for (const e of efectoEnCuentas(m, hastaMes, hoy)) {
+      if (porCuenta.has(e.cuenta)) porCuenta.set(e.cuenta, porCuenta.get(e.cuenta)! + e.delta);
+    }
+  }
+  return cuentas.map(c => ({ cuenta: c, saldo: porCuenta.get(c.id) || 0 }));
+}
+
+/** Movimientos que todavía no tienen cuenta asignada (cargados antes de esta función). */
+export const sinCuenta = (movs: Mov[]) => movs.filter(m => m.tipo !== 'transferencia' && !m.cuenta).length;

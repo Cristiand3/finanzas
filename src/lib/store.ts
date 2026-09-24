@@ -5,7 +5,7 @@ import {
   setDoc, updateDoc, writeBatch, type Unsubscribe,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
-import { conObjetivos, DEFAULTS, type Hogar, type Meta, type Mov, type Pmov, type Prestamo } from './model';
+import { conObjetivos, CUENTAS_INICIALES, DEFAULTS, type Hogar, type Meta, type Mov, type Pmov, type Prestamo } from './model';
 
 export const COLS = ['movs', 'metas', 'prestamos', 'pmovs'] as const;
 export type Col = (typeof COLS)[number];
@@ -115,6 +115,7 @@ export async function crearHogar(nombre: string, personas: string[]) {
   const h: Omit<Hogar, 'id'> & { creado: unknown } = {
     nombre, owner: uid(), miembros: [uid()], invite: randomCode(), personas,
     categorias: DEFAULTS.categorias, medios: DEFAULTS.medios, fuentesIngreso: DEFAULTS.fuentesIngreso,
+    cuentas: CUENTAS_INICIALES,
     creado: serverTimestamp(),
   };
   await setDoc(doc(db, 'hogares', id), h);

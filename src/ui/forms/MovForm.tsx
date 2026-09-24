@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { shiftMonth, todayISO, ym } from '../../lib/calc';
 import { fmt, formatMiles, monthName, parseAmt } from '../../lib/format';
-import { CAT_ICON, MONEDAS, MONEDA_IDS, type Moneda, type Mov, type TipoMov } from '../../lib/model';
+import { CAT_ICON, cuentasDe, MONEDAS, MONEDA_IDS, TIPOS_CUENTA, type Moneda, type Mov, type TipoMov } from '../../lib/model';
 import { borrar, guardar, hogar, metas, miPersona, newId, toast } from '../../lib/store';
 import { Field, MontoInput, Seg } from '../common';
 import { closeSheet, mes } from '../state';
@@ -10,10 +10,12 @@ const CUOTAS = [1, 2, 3, 4, 6, 9, 10, 12, 18, 24];
 
 export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
   const h = hogar.value!;
+  const cuentas = cuentasDe(h);
   const hoy = todayISO();
   const init: Mov = mov ? { ...mov } : {
     id: '', tipo: 'gasto', fecha: ym(hoy) === mes.value ? hoy : `${mes.value}-01`, persona: miPersona.value,
     desc: '', cat: h.categorias[0], monto: 0, moneda: 'ARS', medio: lastMedio() || h.medios[0],
+    cuenta: lastCuenta(cuentas) || cuentas[0]?.id,
     ...preset,
   };
   const [m, setM] = useState<Mov>(init);
@@ -35,7 +37,16 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
     tipo,
     cat: tipo === 'ingreso' ? h.fuentesIngreso[0] : tipo === 'gasto' ? h.categorias[0] : m.cat,
     meta: tipo === 'ahorro' ? metaSel?.id : undefined,
+    cuentaDestino: tipo === 'transferencia' ? (m.cuentaDestino || cuentas.find(c => c.id !== m.cuenta)?.id) : undefined,
   });
+
+  const selectorCuenta = (label: string, valor: string | undefined, onChange: (v: string) => void) => (
+    <Field label={label}>
+      <select class="inp" value={valor} onChange={e => onChange(e.currentTarget.value)}>
+        {cuentas.map(c => <option value={c.id}>{TIPOS_CUENTA[c.tipo].icono} {c.nombre}</option>)}
+      </select>
+    </Field>
+  );
 
   const save = (e?: Event) => {
     e?.preventDefault();
@@ -52,6 +63,13 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
       rememberMedio(m.medio);
     }
     if (m.tipo === 'ahorro') { out.meta = metaSel?.id; out.cat = ''; }
+    if (m.tipo === 'transferencia') {
+      if (m.cuenta === m.cuentaDestino) { toast('Elegí dos cuentas distintas'); return; }
+      out.cat = '';
+      out.cuentaDestino = m.cuentaDestino;
+    }
+    out.cuenta = m.cuenta;
+    rememberCuenta(m.cuenta);
     if (mov?.creadoPor) out.creadoPor = mov.creadoPor;
     guardar('movs', out);
     closeSheet();
@@ -64,7 +82,8 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
   return (
     <form onSubmit={save}>
       <h3>{nuevo ? 'Nuevo movimiento' : 'Editar movimiento'}</h3>
-      <Seg value={m.tipo} onChange={setTipo} options={[['gasto', 'Gasto'], ['ingreso', 'Ingreso'], ['ahorro', 'Ahorro']]} />
+      <Seg value={m.tipo} onChange={setTipo}
+        options={[['gasto', 'Gasto'], ['ingreso', 'Ingreso'], ['ahorro', 'Ahorro'], ['transferencia', 'Mover']]} />
 
       <Field label={cuotas > 1 ? 'Monto total de la compra' : 'Monto'}>
         <div class="amountbox">
@@ -94,6 +113,7 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
             ))}
           </div>
           <Field label="Descripción"><input class="inp" value={m.desc} onInput={e => set({ desc: e.currentTarget.value })} placeholder="Ej: súper, nafta, farmacia" /></Field>
+          {selectorCuenta('¿De dónde salió la plata?', m.cuenta, v => set({ cuenta: v }))}
           <div class="grid2">
             <Field label="Medio de pago">
               <select class="inp" value={m.medio} onChange={e => set({ medio: e.currentTarget.value, desde: undefined })}>
@@ -124,6 +144,7 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
               {[...new Set([...h.fuentesIngreso, m.cat])].filter(Boolean).map(x => <option>{x}</option>)}
             </select>
           </Field>
+          {selectorCuenta('¿A dónde entró la plata?', m.cuenta, v => set({ cuenta: v }))}
           <Field label="Descripción (opcional)"><input class="inp" value={m.desc} onInput={e => set({ desc: e.currentTarget.value })} /></Field>
         </>
       )}
@@ -138,7 +159,17 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
             <Seg value={retiro ? 'retiro' : 'aporte'} onChange={v => setRetiro(v === 'retiro')}
               options={[['aporte', 'Aporte a la meta'], ['retiro', 'Retiro de la meta']]} />
           </Field>
-          <p class="hint">{retiro ? 'El retiro se resta de lo que llevás juntado.' : 'El aporte se suma a la meta en la moneda que elegiste arriba.'}</p>
+          {selectorCuenta(retiro ? '¿A qué cuenta vuelve?' : '¿De qué cuenta sale?', m.cuenta, v => set({ cuenta: v }))}
+          <p class="hint">{retiro ? 'El retiro se resta de la meta y vuelve a la cuenta.' : 'El aporte se suma a la meta y se descuenta de esa cuenta.'}</p>
+        </>
+      )}
+
+      {m.tipo === 'transferencia' && (
+        <>
+          {selectorCuenta('Sale de', m.cuenta, v => set({ cuenta: v }))}
+          {selectorCuenta('Entra a', m.cuentaDestino, v => set({ cuentaDestino: v }))}
+          <Field label="Descripción (opcional)"><input class="inp" value={m.desc} onInput={e => set({ desc: e.currentTarget.value })} placeholder="Ej: retiro del cajero" /></Field>
+          <p class="hint">Mover plata entre tus cuentas no es un gasto ni un ingreso: no cambia los totales del mes, solo dónde está la plata.</p>
         </>
       )}
 
@@ -157,3 +188,7 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
 
 function lastMedio() { try { return localStorage.getItem('finanzas.medio') || undefined; } catch { return undefined; } }
 function rememberMedio(v?: string) { try { if (v) localStorage.setItem('finanzas.medio', v); } catch { /* ignore */ } }
+function lastCuenta(cuentas: { id: string }[]) {
+  try { const v = localStorage.getItem('finanzas.cuenta'); return cuentas.some(c => c.id === v) ? v! : undefined; } catch { return undefined; }
+}
+function rememberCuenta(v?: string) { try { if (v) localStorage.setItem('finanzas.cuenta', v); } catch { /* ignore */ } }

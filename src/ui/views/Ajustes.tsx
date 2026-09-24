@@ -6,7 +6,9 @@ import {
   cerrarSesion, eliminarCuenta, hogar, importar, linkInvitacion, metas, miPersona, movs, nuevoEnlace,
   pmovs, prestamos, salirDelHogar, setPersona, toast, user,
 } from '../../lib/store';
+import { cuentasDe } from '../../lib/model';
 import { Seg } from '../common';
+import { CuentasSheet } from '../forms/Cuentas';
 import { ListEditor } from '../forms/Otros';
 import { mes, openSheet } from '../state';
 
@@ -51,11 +53,13 @@ export function Ajustes() {
 
   const exportCSV = () => {
     const q = (v: unknown) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
-    const rows = [['Fecha', 'Tipo', 'Persona', 'Descripción', 'Categoría / Meta', 'Moneda', 'Monto del mes', 'Monto total', 'Cuota', 'Medio de pago', 'Notas']];
+    const rows = [['Fecha', 'Tipo', 'Persona', 'Descripción', 'Categoría / Meta', 'Moneda', 'Monto del mes', 'Monto total', 'Cuota', 'Medio de pago', 'Cuenta', 'Notas']];
     for (const l of lineasDelMes(movs.value, mes.value).sort((a, b) => a.mov.fecha.localeCompare(b.mov.fecha))) {
       const m = l.mov;
       rows.push([m.fecha, m.tipo, m.persona, m.desc, m.tipo === 'ahorro' ? metas.value.find(x => x.id === m.meta)?.nombre || '' : m.cat,
-        m.moneda, String(l.monto).replace('.', ','), String(m.monto).replace('.', ','), l.cuota ? `${l.cuota.k}/${l.cuota.n}` : '', m.medio || '', m.notas || '']);
+        m.moneda, String(l.monto).replace('.', ','), String(m.monto).replace('.', ','), l.cuota ? `${l.cuota.k}/${l.cuota.n}` : '', m.medio || '',
+        [cuentasDe(h).find(c => c.id === m.cuenta)?.nombre, m.cuentaDestino ? '→ ' + cuentasDe(h).find(c => c.id === m.cuentaDestino)?.nombre : ''].filter(Boolean).join(' '),
+        m.notas || '']);
     }
     download(`finanzas-${mes.value}.csv`, String.fromCharCode(0xfeff) + rows.map(r => r.map(q).join(';')).join('\r\n'), 'text/csv');
   };
@@ -96,6 +100,12 @@ export function Ajustes() {
         <div class="btns">
           <button class="btn ghost" onClick={() => { if (confirm('El enlace anterior deja de funcionar. ¿Generar uno nuevo?')) { nuevoEnlace(); toast('Enlace nuevo generado'); } }}>Nuevo enlace</button>
           <button class="btn danger" disabled={busy} onClick={salir}>Salir del hogar</button>
+        </div>
+      </div>
+
+      <div class="card"><h2>Cuentas</h2>
+        <div class="row tap" onClick={() => openSheet(<CuentasSheet />)}>
+          <div><div class="t">Efectivo, banco e inversiones</div><div class="s">Saldos y cuentas del hogar</div></div><span>›</span>
         </div>
       </div>
 
