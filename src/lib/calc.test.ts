@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cuotasFuturas, lineaDelMes, monedasUsadas, monthsBetween, prestamoCalc, progresoMeta, resumen, saldos, shiftMonth, sinCuenta } from './calc';
+import { apartadoEnMetas, cuotasFuturas, lineaDelMes, monedasUsadas, monthsBetween, prestamoCalc, progresoMeta, resumen, saldos, shiftMonth, sinCuenta, sum } from './calc';
 import { conObjetivos, type Meta, type Mov } from './model';
 
 const mov = (p: Partial<Mov>): Mov => ({
@@ -58,7 +58,7 @@ describe('monedas', () => {
     const dolares = resumen(movs, '2026-09', 'Todos', 'USD');
     expect(dolares.gas).toBe(200);
     expect(dolares.ing).toBe(0);
-    expect(resumen(movs, '2026-09', 'Todos', 'EUR').libre).toBe(500);
+    expect(resumen(movs, '2026-09', 'Todos', 'EUR').resultado).toBe(500);
   });
   it('lista las monedas usadas en el mes, con pesos siempre primero', () => {
     expect(monedasUsadas(movs, '2026-09')).toEqual(['ARS', 'USD', 'EUR']);
@@ -183,5 +183,43 @@ describe('ajuste de saldo (rendimiento de un fondo)', () => {
     expect([r.ing, r.gas, r.aho]).toEqual([0, 0, 0]);
     const baja = { ...rinde, id: 'b', monto: -20_000 };
     expect(saldos([rinde, baja], cuentas, 'ARS', '2026-09-30')[0].saldo).toBe(492_500);
+  });
+});
+
+describe('los saldos y el resumen del mes cierran entre sí', () => {
+  const cuentas = [
+    { id: 'ef', nombre: 'Efectivo', tipo: 'efectivo' as const, inicial: { ARS: 100_000 } },
+    { id: 'bco', nombre: 'Banco', tipo: 'banco' as const, inicial: { ARS: 500_000 } },
+    { id: 'fci', nombre: 'FCI', tipo: 'inversion' as const },
+  ];
+  const movs: Mov[] = [
+    mov({ tipo: 'ingreso', monto: 1_000_000, cuenta: 'bco', fecha: '2026-09-05' }),
+    mov({ monto: 200_000, cuenta: 'bco', fecha: '2026-09-07' }),
+    mov({ monto: 30_000, cuenta: 'ef', fecha: '2026-09-08' }),
+    mov({ tipo: 'ahorro', meta: 'm', monto: 300_000, cuenta: 'bco', fecha: '2026-09-10' }),
+    mov({ tipo: 'transferencia', monto: 150_000, cuenta: 'bco', cuentaDestino: 'fci', fecha: '2026-09-11' }),
+    mov({ tipo: 'ajuste', monto: 12_000, cuenta: 'fci', fecha: '2026-09-28' }),
+  ];
+  const patrimonio = (hasta: string) =>
+    sum(saldos(movs, cuentas, 'ARS', hasta), s => s.saldo) + apartadoEnMetas(movs, 'ARS', hasta);
+
+  it('apartar plata en una meta no es un gasto del mes', () => {
+    const r = resumen(movs, '2026-09');
+    expect(r.gas).toBe(230_000);
+    expect(r.aho).toBe(300_000);
+    expect(r.resultado).toBe(770_000); // 1.000.000 − 230.000
+  });
+  it('el resultado del mes explica cuánto variaron los saldos', () => {
+    const r = resumen(movs, '2026-09');
+    const antes = patrimonio('2026-08-31');
+    const despues = patrimonio('2026-09-30');
+    expect(despues - antes).toBe(r.variacionSaldos); // resultado + rendimientos
+    expect(r.variacionSaldos).toBe(782_000);
+  });
+  it('mover plata entre cuentas y apartarla en metas no cambia el total', () => {
+    const sinInternos = movs.filter(m => m.tipo !== 'transferencia' && m.tipo !== 'ahorro');
+    expect(patrimonio('2026-09-30')).toBe(
+      sum(saldos(sinInternos, cuentas, 'ARS', '2026-09-30'), s => s.saldo) + apartadoEnMetas(sinInternos, 'ARS', '2026-09-30'),
+    );
   });
 });

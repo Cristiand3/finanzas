@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { gruposSinCuenta, saldos, sinCuenta, todayISO } from '../../lib/calc';
+import { apartadoEnMetas, gruposSinCuenta, saldos, sinCuenta, todayISO } from '../../lib/calc';
 import { fmt, formatMiles, parseAmt } from '../../lib/format';
 import { cuentasDe, MONEDAS, MONEDA_IDS, SUGERENCIAS_INVERSION, TIPOS_CUENTA, type Cuenta, type Moneda, type TipoCuenta } from '../../lib/model';
 import { actualizarHogar, guardar, hogar, miPersona, movs, newId, toast } from '../../lib/store';
@@ -17,6 +17,7 @@ export function CuentasSheet() {
   const invertido = lista.filter(s => !TIPOS_CUENTA[s.cuenta.tipo].disponible);
   const total = (xs: typeof lista) => xs.reduce((t, s) => t + s.saldo, 0);
   const pendientes = sinCuenta(movs.value);
+  const apartado = apartadoEnMetas(movs.value, moneda);
 
   return (
     <div>
@@ -25,6 +26,10 @@ export function CuentasSheet() {
         <div class="stat"><div class="l">Disponible</div><div class="v">{fmt(total(disponible), moneda)}</div></div>
         <div class="stat"><div class="l">Invertido</div><div class="v save">{fmt(total(invertido), moneda)}</div></div>
       </div>
+      {apartado !== 0 && (
+        <div class="row"><span>🎯 Apartado en metas</span><span class="num save">{fmt(apartado, moneda)}</span></div>
+      )}
+      <div class="row"><b>Total</b><b class="num">{fmt(total(lista) + apartado, moneda)}</b></div>
       {MONEDA_IDS.length > 1 && <p class="hint">Saldos en {MONEDAS[moneda].nombre.toLowerCase()}. Para ver otra moneda, cambiala en Inicio.</p>}
 
       <div class="card" style={{ boxShadow: 'none' }}>

@@ -65,11 +65,14 @@ export function resumen(movs: Mov[], mes: string, persona = 'Todos', moneda: Mon
   const aho = sum(of('ahorro'), l => l.monto);
   const porCat = new Map<string, number>();
   for (const l of of('gasto')) porCat.set(l.mov.cat, (porCat.get(l.mov.cat) || 0) + l.monto);
+  const ajustes = sum(of('ajuste'), l => l.monto); // rendimientos de inversiones
   return {
-    moneda, ing, gas, aho,
+    moneda, ing, gas, aho, ajustes,
     enCuotas: sum(of('gasto').filter(l => l.cuota), l => l.monto),
-    sobrante: ing - gas,
-    libre: ing - gas - aho,
+    // Resultado del mes: lo que entró menos lo que se fue de verdad. Apartar plata en una
+    // meta no es un gasto, así que no resta: por eso esto explica cuánto variaron los saldos.
+    resultado: ing - gas,
+    variacionSaldos: ing - gas + ajustes,
     pctGasto: ing ? gas / ing : NaN,
     cantidad: of('gasto').length,
     porCat: [...porCat].map(([cat, v]) => ({ cat, v })).sort((a, b) => b.v - a.v),
@@ -94,6 +97,11 @@ export function cuotasFuturas(movs: Mov[], mes: string, meses = 12, moneda: Mone
     .filter(a => a.k <= a.n && a.restante > 0)
     .sort((a, b) => b.restante - a.restante);
   return { moneda, proximos, activas, totalRestante: sum(activas, a => a.restante) };
+}
+
+/** Plata apartada en metas: sigue siendo tuya, pero ya no está disponible en la cuenta. */
+export function apartadoEnMetas(movs: Mov[], moneda: Moneda = 'ARS', hoy = todayISO()) {
+  return sum(movs.filter(m => m.tipo === 'ahorro' && m.moneda === moneda && m.fecha <= hoy), m => m.monto);
 }
 
 export const aportesMeta = (movs: Mov[], metaId: string, moneda: Moneda, persona?: string) =>
