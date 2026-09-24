@@ -1,6 +1,6 @@
 import { cuotasFuturas, prestamoCalc, progresoMeta, resumen, saldos, sum } from '../../lib/calc';
 import { fmt, monthName, monthShort, pct } from '../../lib/format';
-import { AMBOS, CAT_ICON, cuentasDe, cuentasVisibles, MONEDAS, MONEDA_IDS, TIPOS_CUENTA } from '../../lib/model';
+import { CAT_ICON, cuentasDe, MONEDAS, MONEDA_IDS, TIPOS_CUENTA } from '../../lib/model';
 import { hogar, metas, movs, pmovs, prestamos } from '../../lib/store';
 import { Bar } from '../common';
 import { CuentasSheet, SaldosDeHoy } from '../forms/Cuentas';
@@ -17,7 +17,7 @@ export function Inicio() {
   );
   const maxCol = Math.max(1, ...cf.proximos.map(p => p.total));
   const deudas = prestamos.value.map(p => ({ p, c: prestamoCalc(p, pmovs.value, mes.value) })).filter(d => d.p.moneda === moneda);
-  const misCuentas = saldos(movs.value, cuentasVisibles(cuentasDe(h), filtroPersona.value), moneda);
+  const misCuentas = saldos(movs.value, cuentasDe(h), moneda, undefined, filtroPersona.value);
   const disponible = sum(misCuentas.filter(s => TIPOS_CUENTA[s.cuenta.tipo].disponible), s => s.saldo);
   const invertido = sum(misCuentas.filter(s => !TIPOS_CUENTA[s.cuenta.tipo].disponible), s => s.saldo);
   const total = disponible + invertido; // lo apartado en metas se ve en la pestaña Metas
@@ -31,17 +31,12 @@ export function Inicio() {
         <div class="stat big"><div class="v">{fmt(total, moneda)}</div></div>
         {misCuentas.map(s => (
           <div class="row">
-            <span>{TIPOS_CUENTA[s.cuenta.tipo].icono} {s.cuenta.nombre}
-              {filtroPersona.value === 'Todos' && h.personas.length > 1 && (
-                <span class="s"> · {!s.cuenta.persona || s.cuenta.persona === AMBOS ? 'compartida' : `de ${s.cuenta.persona}`}</span>
-              )}
-            </span>
+            <span>{TIPOS_CUENTA[s.cuenta.tipo].icono} {s.cuenta.nombre}</span>
             <span class={`num ${s.saldo < 0 ? 'out' : ''}`}>{fmt(s.saldo, moneda)}</span>
           </div>
         ))}
-        {!misCuentas.length && (
-          <p class="hint">{filtroPersona.value} todavía no tiene cuentas propias. Tocá acá para crearle una,
-            o mirá el hogar completo desde <b>Todos</b>. Las cuentas compartidas se ven solo ahí.</p>
+        {filtroPersona.value !== 'Todos' && (
+          <p class="hint" style={{ marginTop: 6 }}>Es la parte de {filtroPersona.value}: lo que entró y salió con sus movimientos.</p>
         )}
         <button class="btn ghost sm" style={{ width: '100%', marginTop: 10 }}
           onClick={e => { e.stopPropagation(); openSheet(<SaldosDeHoy />); }}>Poner mis saldos de hoy</button>
@@ -70,7 +65,7 @@ export function Inicio() {
             {r.aho !== 0 ? `, ya descontando ${fmt(r.aho, moneda)} que apartaste en metas` : ''}.
           </p>
         ) : (
-          <p class="hint" style={{ marginBottom: 0 }}>Estás viendo solo lo de {filtroPersona.value}: sus movimientos y sus cuentas. Lo compartido del hogar se ve en Todos.</p>
+          <p class="hint" style={{ marginBottom: 0 }}>Estás viendo solo lo de {filtroPersona.value}. En Todos se suma lo de todo el hogar.</p>
         )}
       </div>
 

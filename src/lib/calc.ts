@@ -1,4 +1,4 @@
-import { AMBOS, type Cuenta, type Meta, type Moneda, type Mov, type Pmov, type Prestamo } from './model';
+import { type Cuenta, type Meta, type Moneda, type Mov, type Pmov, type Prestamo } from './model';
 
 // ---------- fechas ----------
 export const ym = (iso: string) => iso.slice(0, 7);
@@ -102,8 +102,11 @@ export function cuotasFuturas(movs: Mov[], mes: string, meses = 12, moneda: Mone
 }
 
 /** Plata apartada en metas: sigue siendo tuya, pero ya no está disponible en la cuenta. */
-export function apartadoEnMetas(movs: Mov[], moneda: Moneda = 'ARS', hoy = todayISO()) {
-  return sum(movs.filter(m => m.tipo === 'ahorro' && m.moneda === moneda && m.fecha <= hoy), m => m.monto);
+export function apartadoEnMetas(movs: Mov[], moneda: Moneda = 'ARS', hoy = todayISO(), persona = 'Todos') {
+  return sum(
+    movs.filter(m => m.tipo === 'ahorro' && m.moneda === moneda && m.fecha <= hoy && (persona === 'Todos' || m.persona === persona)),
+    m => m.monto,
+  );
 }
 
 export const aportesMeta = (movs: Mov[], metaId: string, moneda: Moneda, persona?: string) =>
@@ -172,13 +175,18 @@ function efectoEnCuentas(m: Mov, hastaMes: string, hoy: string): { cuenta: strin
 }
 
 export interface SaldoCuenta { cuenta: Cuenta; saldo: number }
-/** Cuánta plata hay hoy en cada cuenta, en una moneda. */
-export function saldos(movs: Mov[], cuentas: Cuenta[], moneda: Moneda = 'ARS', hoy = todayISO()): SaldoCuenta[] {
+/**
+ * Cuánta plata hay hoy en cada cuenta. Con `persona` se ve la parte de esa persona,
+ * calculada con sus propios movimientos; la suma de todas las personas da el total del hogar.
+ */
+export function saldos(movs: Mov[], cuentas: Cuenta[], moneda: Moneda = 'ARS', hoy = todayISO(), persona = 'Todos'): SaldoCuenta[] {
   const hastaMes = ym(hoy);
   const porCuenta = new Map<string, number>();
-  for (const c of cuentas) porCuenta.set(c.id, c.inicial?.[moneda] || 0);
+  // El saldo de partida de la cuenta es del hogar: solo suma en la vista de todos.
+  for (const c of cuentas) porCuenta.set(c.id, persona === 'Todos' ? c.inicial?.[moneda] || 0 : 0);
   for (const m of movs) {
     if (m.moneda !== moneda) continue;
+    if (persona !== 'Todos' && m.persona !== persona) continue;
     for (const e of efectoEnCuentas(m, hastaMes, hoy)) {
       if (porCuenta.has(e.cuenta)) porCuenta.set(e.cuenta, porCuenta.get(e.cuenta)! + e.delta);
     }
@@ -204,11 +212,7 @@ export function gruposSinCuenta(movs: Mov[]) {
   return [...grupos.values()].sort((a, b) => b.movs.length - a.movs.length);
 }
 
-/** Cuánto tiene cada integrante del hogar: sus cuentas, y lo compartido aparte. */
+/** Cuánto puso y cuánto le queda a cada integrante, según sus propios movimientos. */
 export function saldosPorPersona(movs: Mov[], cuentas: Cuenta[], personas: string[], moneda: Moneda = 'ARS', hoy = todayISO()) {
-  const lista = saldos(movs, cuentas, moneda, hoy);
-  const propio = (p: string) => sum(lista.filter(s => s.cuenta.persona === p), s => s.saldo);
-  const compartido = sum(lista.filter(s => !s.cuenta.persona || s.cuenta.persona === AMBOS), s => s.saldo);
-  const filas = personas.map(p => ({ nombre: p, total: propio(p), compartida: false }));
-  return compartido !== 0 ? [...filas, { nombre: 'Compartido', total: compartido, compartida: true }] : filas;
+  return personas.map(p => ({ nombre: p, total: sum(saldos(movs, cuentas, moneda, hoy, p), s => s.saldo) }));
 }

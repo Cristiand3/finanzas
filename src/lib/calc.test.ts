@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { apartadoEnMetas, cuotasFuturas, lineaDelMes, monedasUsadas, monthsBetween, prestamoCalc, progresoMeta, resumen, saldos, saldosPorPersona, shiftMonth, sinCuenta, sum } from './calc';
-import { conObjetivos, cuentasVisibles, type Meta, type Mov } from './model';
+import { conObjetivos, type Meta, type Mov } from './model';
 
 const mov = (p: Partial<Mov>): Mov => ({
   id: Math.random().toString(36), tipo: 'gasto', fecha: '2026-09-10', persona: 'A', desc: '', cat: 'Otros',
@@ -230,35 +230,31 @@ describe('los saldos y el resumen del mes cierran entre sí', () => {
   });
 });
 
-describe('cuentas por persona', () => {
+describe('la parte de cada persona', () => {
   const cuentas = [
-    { id: 'c1', nombre: 'Efectivo Cristian', tipo: 'efectivo' as const, persona: 'Cristian' },
-    { id: 'c2', nombre: 'Banco Camila', tipo: 'banco' as const, persona: 'Camila' },
-    { id: 'c3', nombre: 'Caja común', tipo: 'banco' as const, persona: 'Ambos' },
-    { id: 'c4', nombre: 'Vieja sin dueño', tipo: 'banco' as const },
+    { id: 'ef', nombre: 'Efectivo', tipo: 'efectivo' as const },
+    { id: 'bco', nombre: 'Cuenta bancaria', tipo: 'banco' as const },
   ];
-  it('cada uno ve solo las suyas; las compartidas quedan para Todos', () => {
-    expect(cuentasVisibles(cuentas, 'Todos').map(c => c.id)).toEqual(['c1', 'c2', 'c3', 'c4']);
-    expect(cuentasVisibles(cuentas, 'Cristian').map(c => c.id)).toEqual(['c1']);
-    expect(cuentasVisibles(cuentas, 'Camila').map(c => c.id)).toEqual(['c2']);
-  });
-});
+  const movs: Mov[] = [
+    mov({ tipo: 'ingreso', monto: 1_000_000, cuenta: 'bco', persona: 'Cristian', fecha: '2026-09-05' }),
+    mov({ monto: 300_000, cuenta: 'bco', persona: 'Cristian', fecha: '2026-09-06' }),
+    mov({ tipo: 'ingreso', monto: 800_000, cuenta: 'bco', persona: 'Camila', fecha: '2026-09-07' }),
+    mov({ monto: 50_000, cuenta: 'ef', persona: 'Camila', fecha: '2026-09-08' }),
+  ];
+  const total = (persona?: string) => sum(saldos(movs, cuentas, 'ARS', '2026-09-30', persona), s => s.saldo);
 
-describe('cuánto tiene cada uno', () => {
-  const cuentas = [
-    { id: 'c1', nombre: 'Efectivo Cristian', tipo: 'efectivo' as const, persona: 'Cristian', inicial: { ARS: 20_000 } },
-    { id: 'c2', nombre: 'Banco Cristian', tipo: 'banco' as const, persona: 'Cristian', inicial: { ARS: 88_000 } },
-    { id: 'c3', nombre: 'Banco Camila', tipo: 'banco' as const, persona: 'Camila', inicial: { ARS: 450_000 } },
-    { id: 'c4', nombre: 'FCI', tipo: 'inversion' as const, persona: 'Ambos', inicial: { ARS: 900_000 } },
-  ];
-  it('suma las cuentas de cada persona y deja lo compartido aparte', () => {
-    const filas = saldosPorPersona([], cuentas, ['Cristian', 'Camila'], 'ARS', '2026-09-30');
-    expect(filas).toEqual([
-      { nombre: 'Cristian', total: 108_000, compartida: false },
-      { nombre: 'Camila', total: 450_000, compartida: false },
-      { nombre: 'Compartido', total: 900_000, compartida: true },
-    ]);
-    // lo de cada uno más lo compartido da el total del hogar
-    expect(sum(filas, f => f.total)).toBe(sum(saldos([], cuentas, 'ARS', '2026-09-30'), s => s.saldo));
+  it('cada persona ve lo que dejaron sus propios movimientos', () => {
+    expect(total('Cristian')).toBe(700_000);
+    expect(total('Camila')).toBe(750_000);
+  });
+  it('la suma de las personas da el total del hogar', () => {
+    expect(total('Todos')).toBe(total('Cristian') + total('Camila'));
+    expect(saldosPorPersona(movs, cuentas, ['Cristian', 'Camila'], 'ARS', '2026-09-30'))
+      .toEqual([{ nombre: 'Cristian', total: 700_000 }, { nombre: 'Camila', total: 750_000 }]);
+  });
+  it('en cada cuenta se ve la parte de esa persona', () => {
+    const deCamila = saldos(movs, cuentas, 'ARS', '2026-09-30', 'Camila');
+    expect(deCamila.find(s => s.cuenta.id === 'bco')!.saldo).toBe(800_000);
+    expect(deCamila.find(s => s.cuenta.id === 'ef')!.saldo).toBe(-50_000);
   });
 });

@@ -9,7 +9,6 @@ export const MONEDAS: Record<Moneda, { simbolo: string; nombre: string }> = {
 export const MONEDA_IDS = Object.keys(MONEDAS) as Moneda[];
 export type TipoMov = 'gasto' | 'ingreso' | 'ahorro' | 'transferencia' | 'ajuste';
 export type TipoCuenta = 'efectivo' | 'banco' | 'inversion';
-export const AMBOS = 'Ambos'; // cuentas compartidas del hogar
 
 export const TIPOS_CUENTA: Record<TipoCuenta, { nombre: string; icono: string; disponible: boolean }> = {
   efectivo: { nombre: 'Efectivo', icono: '💵', disponible: true },
@@ -22,7 +21,6 @@ export interface Cuenta {
   id: string;
   nombre: string;
   tipo: TipoCuenta;
-  persona?: string; // dueño de la cuenta; 'Ambos' si es compartida
   inicial?: Partial<Record<Moneda, number>>; // saldo al empezar a usar la app
   orden?: number;
 }
@@ -100,13 +98,10 @@ export interface Hogar {
 
 /** Hogares creados antes de las cuentas: arrancan con efectivo y banco. */
 export const CUENTAS_INICIALES: Cuenta[] = [
-  { id: 'efectivo', nombre: 'Efectivo', tipo: 'efectivo', persona: AMBOS, orden: 0 },
-  { id: 'banco', nombre: 'Cuenta bancaria', tipo: 'banco', persona: AMBOS, orden: 1 },
+  { id: 'efectivo', nombre: 'Efectivo', tipo: 'efectivo', orden: 0 },
+  { id: 'banco', nombre: 'Cuenta bancaria', tipo: 'banco', orden: 1 },
 ];
 
-/** Al mirar a una persona se ven solo SUS cuentas; las compartidas aparecen en "Todos". */
-export const cuentasVisibles = (cuentas: Cuenta[], persona: string) =>
-  persona === 'Todos' ? cuentas : cuentas.filter(c => c.persona === persona);
 /** Nombres típicos de inversiones, para no arrancar de cero. */
 export const SUGERENCIAS_INVERSION = ['Fondo común de inversión', 'Plazo fijo', 'Acciones', 'Cripto', 'Dólares guardados'];
 

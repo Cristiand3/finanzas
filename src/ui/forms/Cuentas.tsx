@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 import { gruposSinCuenta, saldos, sinCuenta, todayISO } from '../../lib/calc';
 import { fmt, formatMiles, parseAmt } from '../../lib/format';
-import { AMBOS, cuentasDe, cuentasVisibles, MONEDAS, MONEDA_IDS, SUGERENCIAS_INVERSION, TIPOS_CUENTA, type Cuenta, type Moneda, type TipoCuenta } from '../../lib/model';
+import { cuentasDe, MONEDAS, MONEDA_IDS, SUGERENCIAS_INVERSION, TIPOS_CUENTA, type Cuenta, type Moneda, type TipoCuenta } from '../../lib/model';
 import { actualizarHogar, guardar, hogar, miPersona, movs, newId, toast } from '../../lib/store';
 import { Field, MontoInput, Seg, SheetFooter } from '../common';
 import { closeSheet, filtroPersona, monedaVista, openSheet } from '../state';
@@ -12,7 +12,7 @@ export function CuentasSheet() {
   const h = hogar.value!;
   const cuentas = cuentasDe(h);
   const moneda = monedaVista.value;
-  const lista = saldos(movs.value, cuentasVisibles(cuentas, filtroPersona.value), moneda);
+  const lista = saldos(movs.value, cuentas, moneda, undefined, filtroPersona.value);
   const disponible = lista.filter(s => TIPOS_CUENTA[s.cuenta.tipo].disponible);
   const invertido = lista.filter(s => !TIPOS_CUENTA[s.cuenta.tipo].disponible);
   const total = (xs: typeof lista) => xs.reduce((t, s) => t + s.saldo, 0);
@@ -28,18 +28,17 @@ export function CuentasSheet() {
       <div class="row"><b>Total en cuentas</b><b class="num">{fmt(total(lista), moneda)}</b></div>
       {MONEDA_IDS.length > 1 && <p class="hint">Saldos en {MONEDAS[moneda].nombre.toLowerCase()}. Para ver otra moneda, cambiala en Inicio.</p>}
       {filtroPersona.value !== 'Todos' && (
-        <p class="hint">Estás viendo solo las cuentas de {filtroPersona.value}.{' '}
-          <button type="button" class="link" onClick={() => (filtroPersona.value = 'Todos')}>Ver todas las del hogar</button>
+        <p class="hint">Estás viendo la parte de {filtroPersona.value}.{' '}
+          <button type="button" class="link" onClick={() => (filtroPersona.value = 'Todos')}>Ver el total del hogar</button>
         </p>
       )}
 
       <div class="card" style={{ boxShadow: 'none' }}>
-        {!lista.length && <p class="empty">{filtroPersona.value} todavía no tiene cuentas propias.</p>}
         {lista.map(s => (
           <div class="row tap" onClick={() => openSheet(<CuentaForm cuenta={s.cuenta} />)}>
             <div>
               <div class="t">{TIPOS_CUENTA[s.cuenta.tipo].icono} {s.cuenta.nombre}</div>
-              <div class="s">{[TIPOS_CUENTA[s.cuenta.tipo].nombre, s.cuenta.persona && s.cuenta.persona !== AMBOS ? `de ${s.cuenta.persona}` : 'compartida',
+              <div class="s">{[TIPOS_CUENTA[s.cuenta.tipo].nombre,
                 TIPOS_CUENTA[s.cuenta.tipo].disponible ? '' : 'no cuenta como disponible'].filter(Boolean).join(' · ')}</div>
             </div>
             <div class={`num ${s.saldo < 0 ? 'out' : ''}`}>{fmt(s.saldo, moneda)}</div>
@@ -73,7 +72,6 @@ export function CuentaForm({ cuenta, tipoInicial }: { cuenta?: Cuenta; tipoInici
   const cuentas = cuentasDe(h);
   const [nombre, setNombre] = useState(cuenta?.nombre || '');
   const [tipo, setTipo] = useState<TipoCuenta>(cuenta?.tipo || tipoInicial || 'banco');
-  const [persona, setPersona] = useState(cuenta?.persona || (filtroPersona.value !== 'Todos' ? filtroPersona.value : AMBOS));
   const [iniciales, setIniciales] = useState<Partial<Record<Moneda, string>>>(() => {
     const o: Partial<Record<Moneda, string>> = {};
     for (const c of MONEDA_IDS) if (cuenta?.inicial?.[c]) o[c] = formatMiles(String(cuenta.inicial[c]));
@@ -89,7 +87,7 @@ export function CuentaForm({ cuenta, tipoInicial }: { cuenta?: Cuenta; tipoInici
     const inicial: Partial<Record<Moneda, number>> = {};
     for (const c of usadas) { const v = parseAmt(iniciales[c] || ''); if (v) inicial[c] = v; }
     const nueva: Cuenta = {
-      id: cuenta?.id || newId(), nombre: nombre.trim(), tipo, persona, inicial,
+      id: cuenta?.id || newId(), nombre: nombre.trim(), tipo, inicial,
       orden: cuenta?.orden ?? cuentas.length,
     };
     actualizarHogar({ cuentas: cuenta ? cuentas.map(c => (c.id === cuenta.id ? nueva : c)) : [...cuentas, nueva] });
@@ -109,11 +107,6 @@ export function CuentaForm({ cuenta, tipoInicial }: { cuenta?: Cuenta; tipoInici
     <form onSubmit={guardarCuenta}>
       <h3>{cuenta ? 'Editar cuenta' : 'Nueva cuenta'}</h3>
       <Field label="Nombre"><input class="inp" value={nombre} onInput={e => setNombre(e.currentTarget.value)} placeholder="Ej: Banco Nación, FCI Mercado Pago" /></Field>
-      <Field label="¿De quién es?">
-        <select class="inp" value={persona} onChange={e => setPersona(e.currentTarget.value)}>
-          {[AMBOS, ...h.personas].map(p => <option value={p}>{p === AMBOS ? 'Compartida (las ve todo el hogar)' : p}</option>)}
-        </select>
-      </Field>
       <Field label="Tipo">
         <Seg value={tipo} onChange={setTipo} options={TIPO_IDS.map(t => [t, TIPOS_CUENTA[t].nombre])} />
       </Field>
@@ -242,7 +235,8 @@ export function SaldosDeHoy() {
   const cuentas = cuentasDe(h);
   const moneda = monedaVista.value;
   // Siempre todas las cuentas del hogar: es una pantalla de puesta a punto, no una vista filtrada.
-  const actuales = saldos(movs.value, cuentas, moneda);
+  const dueño = filtroPersona.value !== 'Todos' ? filtroPersona.value : miPersona.value;
+  const actuales = saldos(movs.value, cuentas, moneda, undefined, filtroPersona.value);
   const [txt, setTxt] = useState<Record<string, string>>(
     () => Object.fromEntries(actuales.map(s => [s.cuenta.id, formatMiles(String(Math.round(s.saldo)))])),
   );
@@ -255,7 +249,7 @@ export function SaldosDeHoy() {
     if (!cambios.length) { toast('Los saldos ya estaban así'); return; }
     for (const c of cambios) {
       guardar('movs', {
-        id: newId(), tipo: 'ajuste', fecha: todayISO(), persona: miPersona.value,
+        id: newId(), tipo: 'ajuste', fecha: todayISO(), persona: dueño,
         desc: 'Saldo real de la cuenta', cat: '', monto: c.nuevo - c.actual, moneda, cuenta: c.cuenta.id,
       });
     }
@@ -276,11 +270,11 @@ export function SaldosDeHoy() {
     <form onSubmit={guardarTodo}>
       <h3>¿Cuánta plata tenés hoy?</h3>
       <p class="hint" style={{ marginTop: 0 }}>
-        Mirá tu billetera y el homebanking y poné los números de verdad. La app ajusta la diferencia sola,
+        Poné los números de verdad{filtroPersona.value !== 'Todos' ? ` de ${filtroPersona.value}` : ''}. La app ajusta la diferencia sola,
         sin contarla como ingreso ni gasto, y de ahí en adelante los saldos van a coincidir con la realidad.
       </p>
       {actuales.map(s => (
-        <Field label={`${TIPOS_CUENTA[s.cuenta.tipo].icono} ${s.cuenta.nombre}${s.cuenta.persona && s.cuenta.persona !== AMBOS ? ` · de ${s.cuenta.persona}` : ' · compartida'}`}>
+        <Field label={`${TIPOS_CUENTA[s.cuenta.tipo].icono} ${s.cuenta.nombre}`}>
           <MontoInput class="" value={txt[s.cuenta.id] || ''} onValue={v => setTxt(o => ({ ...o, [s.cuenta.id]: v }))} placeholder="0" />
           <span class="hint">La app calculó {fmt(s.saldo, moneda)}</span>
         </Field>
