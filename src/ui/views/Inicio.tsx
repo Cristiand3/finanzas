@@ -3,7 +3,7 @@ import { fmt, monthName, monthShort, pct } from '../../lib/format';
 import { CAT_ICON, cuentasDe, MONEDAS, MONEDA_IDS, TIPOS_CUENTA } from '../../lib/model';
 import { hogar, metas, movs, pmovs, prestamos } from '../../lib/store';
 import { Bar } from '../common';
-import { CuentasSheet } from '../forms/Cuentas';
+import { CuentasSheet, SaldosDeHoy } from '../forms/Cuentas';
 import { filtroPersona, mes, monedaVista, openSheet, tab } from '../state';
 
 export function Inicio() {
@@ -36,7 +36,9 @@ export function Inicio() {
         {apartado !== 0 && (
           <div class="row"><span>🎯 Apartado en metas</span><span class="num save">{fmt(apartado, moneda)}</span></div>
         )}
-        <p class="hint" style={{ marginBottom: 0 }}>
+        <button class="btn ghost sm" style={{ width: '100%', marginTop: 10 }}
+          onClick={e => { e.stopPropagation(); openSheet(<SaldosDeHoy />); }}>Poner mis saldos de hoy</button>
+        <p class="hint" style={{ marginBottom: 0, marginTop: 10 }}>
           Disponible {fmt(disponible, moneda)}
           {invertido !== 0 ? ` · invertido ${fmt(invertido, moneda)}` : ''}
           {apartado !== 0 ? ` · apartado ${fmt(apartado, moneda)}` : ''}

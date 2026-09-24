@@ -55,6 +55,7 @@ export function CuentasSheet() {
       {invertido.length === 0 && (
         <p class="hint">¿Tenés plata en un fondo común, un plazo fijo, acciones o cripto? Agregala como inversión: se ve por separado y no suma a lo disponible.</p>
       )}
+      <button class="btn" onClick={() => openSheet(<SaldosDeHoy />)}>Poner mis saldos de hoy</button>
       <div class="btns" style={{ flexWrap: 'wrap' }}>
         <button class="btn ghost" onClick={() => openSheet(<CuentaForm />)}>+ Cuenta o efectivo</button>
         <button class="btn ghost" onClick={() => openSheet(<CuentaForm tipoInicial="inversion" />)}>+ Inversión</button>
@@ -223,5 +224,55 @@ export function AsignarCuentas() {
       <button class="btn" disabled={aplicando} onClick={aplicar}>{aplicando ? 'Ubicando…' : 'Ubicar todos'}</button>
       <div class="btns"><button type="button" class="btn ghost" onClick={() => openSheet(<CuentasSheet />)}>Volver</button></div>
     </div>
+  );
+}
+
+/** Una sola pantalla para poner cuánta plata hay HOY en cada cuenta. */
+export function SaldosDeHoy() {
+  const h = hogar.value!;
+  const cuentas = cuentasDe(h);
+  const moneda = monedaVista.value;
+  const actuales = saldos(movs.value, cuentas, moneda);
+  const [txt, setTxt] = useState<Record<string, string>>(
+    () => Object.fromEntries(actuales.map(s => [s.cuenta.id, formatMiles(String(Math.round(s.saldo)))])),
+  );
+  const cambios = actuales
+    .map(s => ({ cuenta: s.cuenta, actual: s.saldo, nuevo: parseAmt(txt[s.cuenta.id] || '') }))
+    .filter(c => Math.round(c.nuevo - c.actual) !== 0);
+
+  const guardarTodo = (e: Event) => {
+    e.preventDefault();
+    if (!cambios.length) { toast('Los saldos ya estaban así'); return; }
+    for (const c of cambios) {
+      guardar('movs', {
+        id: newId(), tipo: 'ajuste', fecha: todayISO(), persona: miPersona.value,
+        desc: 'Saldo real de la cuenta', cat: '', monto: c.nuevo - c.actual, moneda, cuenta: c.cuenta.id,
+      });
+    }
+    openSheet(<CuentasSheet />);
+    toast(`${cambios.length} saldo${cambios.length === 1 ? '' : 's'} actualizado${cambios.length === 1 ? '' : 's'} ✓`);
+  };
+
+  return (
+    <form onSubmit={guardarTodo}>
+      <h3>¿Cuánta plata tenés hoy?</h3>
+      <p class="hint" style={{ marginTop: 0 }}>
+        Mirá tu billetera y el homebanking y poné los números de verdad. La app ajusta la diferencia sola,
+        sin contarla como ingreso ni gasto, y de ahí en adelante los saldos van a coincidir con la realidad.
+      </p>
+      {actuales.map(s => (
+        <Field label={`${TIPOS_CUENTA[s.cuenta.tipo].icono} ${s.cuenta.nombre}`}>
+          <MontoInput class="" value={txt[s.cuenta.id] || ''} onValue={v => setTxt(o => ({ ...o, [s.cuenta.id]: v }))} placeholder="0" />
+          <span class="hint">La app calculó {fmt(s.saldo, moneda)}</span>
+        </Field>
+      ))}
+      <div class="note">
+        {cambios.length
+          ? cambios.map(c => <div>{c.cuenta.nombre}: {c.nuevo > c.actual ? 'suma' : 'resta'} <b>{fmt(Math.abs(c.nuevo - c.actual), moneda)}</b></div>)
+          : 'Sin cambios por ahora.'}
+      </div>
+      <button class="btn">Guardar saldos</button>
+      <div class="btns"><button type="button" class="btn ghost" onClick={() => openSheet(<CuentasSheet />)}>Volver</button></div>
+    </form>
   );
 }
