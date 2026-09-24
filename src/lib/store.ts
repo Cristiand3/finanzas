@@ -4,8 +4,9 @@ import {
   arrayRemove, arrayUnion, collection, deleteDoc, deleteField, doc, getDocs, onSnapshot, serverTimestamp,
   setDoc, updateDoc, writeBatch, type Unsubscribe,
 } from 'firebase/firestore';
+import { movsSinCuenta } from './calc';
 import { auth, db } from './firebase';
-import { conObjetivos, CUENTAS_INICIALES, DEFAULTS, type Hogar, type Meta, type Mov, type Pmov, type Prestamo } from './model';
+import { conObjetivos, cuentasDe, CUENTAS_INICIALES, DEFAULTS, type Hogar, type Meta, type Mov, type Pmov, type Prestamo } from './model';
 
 export const COLS = ['movs', 'metas', 'prestamos', 'pmovs'] as const;
 export type Col = (typeof COLS)[number];
@@ -64,6 +65,7 @@ function escucharHogar(hid: string) {
       let docs = q.docs.map(d => d.data());
       if (c === 'metas') docs = docs.map(m => conObjetivos(m as Meta)).sort((x, y) => (x.orden || 0) - (y.orden || 0));
       (data[c] as { value: unknown[] }).value = docs;
+      if (c === 'movs') setTimeout(ubicarMovimientosViejos, 1500);
     }, e => console.error(c, e)));
   }
 }
@@ -83,6 +85,37 @@ onAuthStateChanged(auth, u => {
     else { limpiarHogar(); hogar.value = null; }
   }, e => { console.error(e); perfil.value = {}; });
 });
+
+// ---------- puesta al día automática ----------
+// Los movimientos cargados antes de que existieran las cuentas no tenían ninguna
+// asignada: se ubican solos en efectivo o en la cuenta bancaria, según el medio de pago.
+let migrando = false;
+async function ubicarMovimientosViejos() {
+  const h = hogar.value;
+  if (migrando || !h || !auth.currentUser) return;
+  const pendientes = movsSinCuenta(movs.value);
+  if (!pendientes.length) return;
+  migrando = true;
+  try {
+    const cuentas = cuentasDe(h);
+    const efectivo = cuentas.find(c => c.tipo === 'efectivo') || cuentas[0];
+    const banco = cuentas.find(c => c.tipo === 'banco') || cuentas[0];
+    if (!h.cuentas?.length) await updateDoc(doc(db, 'hogares', h.id), { cuentas });
+    for (let i = 0; i < pendientes.length; i += 400) {
+      const b = writeBatch(db);
+      for (const m of pendientes.slice(i, i + 400)) {
+        const enEfectivo = m.tipo === 'gasto' && /efectivo/i.test(m.medio || '');
+        b.set(doc(db, 'hogares', h.id, 'movs', m.id), { ...m, cuenta: (enEfectivo ? efectivo : banco).id });
+      }
+      await b.commit();
+    }
+    toast(`Ubicamos ${pendientes.length} movimiento${pendientes.length === 1 ? '' : 's'} en tus cuentas ✓`);
+  } catch (e) {
+    console.error(e);
+  } finally {
+    migrando = false;
+  }
+}
 
 // ---------- escrituras ----------
 const uid = () => auth.currentUser!.uid;
