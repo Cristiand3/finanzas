@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { saldos, sinCuenta, todayISO } from '../../lib/calc';
+import { gruposSinCuenta, saldos, sinCuenta, todayISO } from '../../lib/calc';
 import { fmt, formatMiles, parseAmt } from '../../lib/format';
 import { cuentasDe, MONEDAS, MONEDA_IDS, SUGERENCIAS_INVERSION, TIPOS_CUENTA, type Cuenta, type Moneda, type TipoCuenta } from '../../lib/model';
 import { actualizarHogar, guardar, hogar, miPersona, movs, newId, toast } from '../../lib/store';
@@ -39,7 +39,13 @@ export function CuentasSheet() {
         ))}
       </div>
       {pendientes > 0 && (
-        <p class="hint">Hay {pendientes} movimiento{pendientes > 1 ? 's' : ''} cargado{pendientes > 1 ? 's' : ''} antes de usar las cuentas: no afectan estos saldos. Podés abrirlos y elegirles una cuenta.</p>
+        <div class="note">
+          <b>Faltan {pendientes} movimiento{pendientes > 1 ? 's' : ''} por ubicar.</b> Los cargaste antes de que existieran las cuentas, así que todavía no suman ni restan de estos saldos.
+          <button type="button" class="btn sm" style={{ marginTop: 8 }} onClick={() => openSheet(<AsignarCuentas />)}>Ubicarlos ahora</button>
+        </div>
+      )}
+      {lista.some(s => s.saldo < 0) && (
+        <p class="hint">Si alguna cuenta te queda en negativo, entrá y cargá el <b>saldo de partida</b>: es la plata que tenías antes de los movimientos que ya cargaste.</p>
       )}
       {invertido.length === 0 && (
         <p class="hint">¿Tenés plata en un fondo común, un plazo fijo, acciones o cripto? Agregala como inversión: se ve por separado y no suma a lo disponible.</p>
@@ -163,5 +169,54 @@ export function AjustarSaldo({ cuenta }: { cuenta: Cuenta }) {
       <button class="btn">Guardar</button>
       <div class="btns"><button type="button" class="btn ghost" onClick={() => openSheet(<CuentaForm cuenta={cuenta} />)}>Volver</button></div>
     </form>
+  );
+}
+
+/** Asigna una cuenta, de a muchos, a los movimientos cargados antes de que existieran las cuentas. */
+export function AsignarCuentas() {
+  const h = hogar.value!;
+  const cuentas = cuentasDe(h);
+  const grupos = gruposSinCuenta(movs.value);
+  const porDefecto = (clave: string) => {
+    const efectivo = cuentas.find(c => c.tipo === 'efectivo')?.id;
+    const banco = cuentas.find(c => c.tipo === 'banco')?.id;
+    return (/efectivo/i.test(clave) ? efectivo : banco) || cuentas[0]?.id;
+  };
+  const [elegidas, setElegidas] = useState<Record<string, string>>(
+    () => Object.fromEntries(grupos.map(g => [g.clave, porDefecto(g.clave)!])),
+  );
+  const [aplicando, setAplicando] = useState(false);
+
+  const aplicar = async () => {
+    setAplicando(true);
+    let n = 0;
+    for (const g of grupos) {
+      const cuenta = elegidas[g.clave];
+      if (!cuenta) continue;
+      for (const m of g.movs) { guardar('movs', { ...m, cuenta }); n++; }
+    }
+    toast(`Listo: ${n} movimiento${n === 1 ? '' : 's'} ubicado${n === 1 ? '' : 's'} ✓`);
+    openSheet(<CuentasSheet />);
+  };
+
+  if (!grupos.length) return (
+    <div><h3>Todo en orden</h3><p class="empty">No quedan movimientos sin cuenta.</p><SheetFooter /></div>
+  );
+
+  return (
+    <div>
+      <h3>¿De dónde salió esa plata?</h3>
+      <p class="hint" style={{ marginTop: 0 }}>Elegí una cuenta para cada grupo y los saldos se recalculan con todo tu historial. Después podés cambiar cualquier movimiento uno por uno.</p>
+      {grupos.map(g => (
+        <Field label={`${g.titulo} (${g.movs.length})`}>
+          <select class="inp" value={elegidas[g.clave]} onChange={e => setElegidas(o => ({ ...o, [g.clave]: e.currentTarget.value }))}>
+            {cuentas.map(c => <option value={c.id}>{TIPOS_CUENTA[c.tipo].icono} {c.nombre}</option>)}
+          </select>
+        </Field>
+      ))}
+      <p class="hint">Ojo con el saldo de partida: si ya cargaste cuánto tenías, ese número tiene que ser el de <b>antes</b> de estos movimientos.</p>
+      <button class="btn" disabled={aplicando} onClick={aplicar}>{aplicando ? 'Ubicando…' : 'Ubicar todos'}</button>
+      <div class="btns"><button type="button" class="btn ghost" onClick={() => openSheet(<CuentasSheet />)}>Volver</button></div>
+    </div>
   );
 }

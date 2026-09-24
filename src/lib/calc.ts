@@ -177,4 +177,19 @@ export function saldos(movs: Mov[], cuentas: Cuenta[], moneda: Moneda = 'ARS', h
 }
 
 /** Movimientos que todavía no tienen cuenta asignada (cargados antes de esta función). */
-export const sinCuenta = (movs: Mov[]) => movs.filter(m => m.tipo !== 'transferencia' && m.tipo !== 'ajuste' && !m.cuenta).length;
+export const movsSinCuenta = (movs: Mov[]) =>
+  movs.filter(m => m.tipo !== 'transferencia' && m.tipo !== 'ajuste' && !m.cuenta);
+export const sinCuenta = (movs: Mov[]) => movsSinCuenta(movs).length;
+
+/** Agrupa los movimientos sin cuenta para poder asignarles una de a muchos. */
+export function gruposSinCuenta(movs: Mov[]) {
+  const grupos = new Map<string, { clave: string; titulo: string; movs: Mov[] }>();
+  for (const m of movsSinCuenta(movs)) {
+    const clave = m.tipo === 'gasto' ? `gasto:${m.medio || 'Sin medio'}` : m.tipo;
+    const titulo = m.tipo === 'gasto' ? `Gastos con ${m.medio || 'medio sin especificar'}`
+      : m.tipo === 'ingreso' ? 'Ingresos' : 'Aportes a metas';
+    if (!grupos.has(clave)) grupos.set(clave, { clave, titulo, movs: [] });
+    grupos.get(clave)!.movs.push(m);
+  }
+  return [...grupos.values()].sort((a, b) => b.movs.length - a.movs.length);
+}
