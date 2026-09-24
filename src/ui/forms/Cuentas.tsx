@@ -27,9 +27,14 @@ export function CuentasSheet() {
       </div>
       <div class="row"><b>Total en cuentas</b><b class="num">{fmt(total(lista), moneda)}</b></div>
       {MONEDA_IDS.length > 1 && <p class="hint">Saldos en {MONEDAS[moneda].nombre.toLowerCase()}. Para ver otra moneda, cambiala en Inicio.</p>}
-      {filtroPersona.value !== 'Todos' && <p class="hint">Estás viendo solo las cuentas de {filtroPersona.value}. Las compartidas se ven con el filtro en <b>Todos</b>.</p>}
+      {filtroPersona.value !== 'Todos' && (
+        <p class="hint">Estás viendo solo las cuentas de {filtroPersona.value}.{' '}
+          <button type="button" class="link" onClick={() => (filtroPersona.value = 'Todos')}>Ver todas las del hogar</button>
+        </p>
+      )}
 
       <div class="card" style={{ boxShadow: 'none' }}>
+        {!lista.length && <p class="empty">{filtroPersona.value} todavía no tiene cuentas propias.</p>}
         {lista.map(s => (
           <div class="row tap" onClick={() => openSheet(<CuentaForm cuenta={s.cuenta} />)}>
             <div>
@@ -236,7 +241,8 @@ export function SaldosDeHoy() {
   const h = hogar.value!;
   const cuentas = cuentasDe(h);
   const moneda = monedaVista.value;
-  const actuales = saldos(movs.value, cuentasVisibles(cuentas, filtroPersona.value), moneda);
+  // Siempre todas las cuentas del hogar: es una pantalla de puesta a punto, no una vista filtrada.
+  const actuales = saldos(movs.value, cuentas, moneda);
   const [txt, setTxt] = useState<Record<string, string>>(
     () => Object.fromEntries(actuales.map(s => [s.cuenta.id, formatMiles(String(Math.round(s.saldo)))])),
   );
@@ -257,6 +263,15 @@ export function SaldosDeHoy() {
     toast(`${cambios.length} saldo${cambios.length === 1 ? '' : 's'} actualizado${cambios.length === 1 ? '' : 's'} ✓`);
   };
 
+  if (!actuales.length) return (
+    <div>
+      <h3>Todavía no hay cuentas</h3>
+      <p class="hint">Creá al menos una (efectivo, banco o inversión) y después cargás cuánto tenés.</p>
+      <button class="btn" onClick={() => openSheet(<CuentaForm />)}>+ Crear una cuenta</button>
+      <SheetFooter />
+    </div>
+  );
+
   return (
     <form onSubmit={guardarTodo}>
       <h3>¿Cuánta plata tenés hoy?</h3>
@@ -265,7 +280,7 @@ export function SaldosDeHoy() {
         sin contarla como ingreso ni gasto, y de ahí en adelante los saldos van a coincidir con la realidad.
       </p>
       {actuales.map(s => (
-        <Field label={`${TIPOS_CUENTA[s.cuenta.tipo].icono} ${s.cuenta.nombre}`}>
+        <Field label={`${TIPOS_CUENTA[s.cuenta.tipo].icono} ${s.cuenta.nombre}${s.cuenta.persona && s.cuenta.persona !== AMBOS ? ` · de ${s.cuenta.persona}` : ' · compartida'}`}>
           <MontoInput class="" value={txt[s.cuenta.id] || ''} onValue={v => setTxt(o => ({ ...o, [s.cuenta.id]: v }))} placeholder="0" />
           <span class="hint">La app calculó {fmt(s.saldo, moneda)}</span>
         </Field>
@@ -273,9 +288,9 @@ export function SaldosDeHoy() {
       <div class="note">
         {cambios.length
           ? cambios.map(c => <div>{c.cuenta.nombre}: {c.nuevo > c.actual ? 'suma' : 'resta'} <b>{fmt(Math.abs(c.nuevo - c.actual), moneda)}</b></div>)
-          : 'Sin cambios por ahora.'}
+          : 'Escribí los saldos de verdad. Si un número ya coincide, ese queda igual.'}
       </div>
-      <button class="btn">Guardar saldos</button>
+      <button class="btn" disabled={!cambios.length}>{cambios.length ? `Guardar ${cambios.length} saldo${cambios.length === 1 ? '' : 's'}` : 'Guardar saldos'}</button>
       <div class="btns"><button type="button" class="btn ghost" onClick={() => openSheet(<CuentasSheet />)}>Volver</button></div>
     </form>
   );
