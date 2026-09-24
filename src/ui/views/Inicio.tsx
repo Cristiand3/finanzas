@@ -1,4 +1,4 @@
-import { apartadoEnMetas, cuotasFuturas, prestamoCalc, progresoMeta, resumen, saldos, sum } from '../../lib/calc';
+import { cuotasFuturas, prestamoCalc, progresoMeta, resumen, saldos, sum } from '../../lib/calc';
 import { fmt, monthName, monthShort, pct } from '../../lib/format';
 import { CAT_ICON, cuentasDe, MONEDAS, MONEDA_IDS, TIPOS_CUENTA } from '../../lib/model';
 import { hogar, metas, movs, pmovs, prestamos } from '../../lib/store';
@@ -20,10 +20,9 @@ export function Inicio() {
   const misCuentas = saldos(movs.value, cuentasDe(h), moneda);
   const disponible = sum(misCuentas.filter(s => TIPOS_CUENTA[s.cuenta.tipo].disponible), s => s.saldo);
   const invertido = sum(misCuentas.filter(s => !TIPOS_CUENTA[s.cuenta.tipo].disponible), s => s.saldo);
-  const apartado = apartadoEnMetas(movs.value, moneda);
-  const total = disponible + invertido + apartado;
+  const total = disponible + invertido; // lo apartado en metas se ve en la pestaña Metas
   const otras = MONEDA_IDS.filter(c => c !== moneda && resumen(movs.value, mes.value, filtroPersona.value, c).lineas.length > 0);
-  const variacion = r.variacionSaldos;
+  const variacion = r.variacionCuentas;
 
   return (
     <>
@@ -33,15 +32,11 @@ export function Inicio() {
         {misCuentas.map(s => (
           <div class="row"><span>{TIPOS_CUENTA[s.cuenta.tipo].icono} {s.cuenta.nombre}</span><span class={`num ${s.saldo < 0 ? 'out' : ''}`}>{fmt(s.saldo, moneda)}</span></div>
         ))}
-        {apartado !== 0 && (
-          <div class="row"><span>🎯 Apartado en metas</span><span class="num save">{fmt(apartado, moneda)}</span></div>
-        )}
         <button class="btn ghost sm" style={{ width: '100%', marginTop: 10 }}
           onClick={e => { e.stopPropagation(); openSheet(<SaldosDeHoy />); }}>Poner mis saldos de hoy</button>
         <p class="hint" style={{ marginBottom: 0, marginTop: 10 }}>
           Disponible {fmt(disponible, moneda)}
           {invertido !== 0 ? ` · invertido ${fmt(invertido, moneda)}` : ''}
-          {apartado !== 0 ? ` · apartado ${fmt(apartado, moneda)}` : ''}
         </p>
       </div>
 
@@ -60,8 +55,8 @@ export function Inicio() {
         {r.ajustes !== 0 && <p class="hint">Rendimientos de inversiones: {fmt(r.ajustes, moneda)}.</p>}
         {filtroPersona.value === 'Todos' ? (
           <p class="hint" style={{ marginBottom: 0 }}>
-            Con esto tus saldos {variacion >= 0 ? 'crecieron' : 'bajaron'} <b>{fmt(Math.abs(variacion), moneda)}</b> en el mes.
-            Apartar plata en una meta no resta: sigue siendo tuya, arriba de todo.
+            Con esto tus cuentas {variacion >= 0 ? 'crecieron' : 'bajaron'} <b>{fmt(Math.abs(variacion), moneda)}</b> en el mes
+            {r.aho !== 0 ? `, ya descontando ${fmt(r.aho, moneda)} que apartaste en metas` : ''}.
           </p>
         ) : (
           <p class="hint" style={{ marginBottom: 0 }}>Estás viendo solo lo de {filtroPersona.value}. Los saldos de arriba son del hogar completo.</p>

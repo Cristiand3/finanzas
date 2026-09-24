@@ -72,7 +72,9 @@ export function resumen(movs: Mov[], mes: string, persona = 'Todos', moneda: Mon
     // Resultado del mes: lo que entró menos lo que se fue de verdad. Apartar plata en una
     // meta no es un gasto, así que no resta: por eso esto explica cuánto variaron los saldos.
     resultado: ing - gas,
-    variacionSaldos: ing - gas + ajustes,
+    // Cuánto cambiaron las cuentas: lo apartado en metas sale de la cuenta (pero sigue siendo tuyo).
+    variacionCuentas: ing - gas - aho + ajustes,
+    variacionSaldos: ing - gas + ajustes, // incluyendo lo apartado en metas
     pctGasto: ing ? gas / ing : NaN,
     cantidad: of('gasto').length,
     porCat: [...porCat].map(([cat, v]) => ({ cat, v })).sort((a, b) => b.v - a.v),

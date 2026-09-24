@@ -15,8 +15,9 @@ export function Metas() {
   return (
     <>
       <div class="card feature">
-        <div class="stat big"><div class="l">Total ahorrado</div><div class="v">{fmt(totales[0].total, totales[0].moneda)}</div></div>
+        <div class="stat big"><div class="l">Total apartado en metas</div><div class="v">{fmt(totales[0].total, totales[0].moneda)}</div></div>
         {totales.length > 1 && <div class="hint">más {totales.slice(1).map(x => fmt(x.total, x.moneda)).join(' y ')}</div>}
+        <div class="hint">Es plata tuya, apartada para estos objetivos: por eso no figura en Mis saldos.</div>
       </div>
 
       {metas.value.map(m => {

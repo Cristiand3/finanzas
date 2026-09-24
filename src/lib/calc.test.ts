@@ -209,6 +209,12 @@ describe('los saldos y el resumen del mes cierran entre sí', () => {
     expect(r.aho).toBe(300_000);
     expect(r.resultado).toBe(770_000); // 1.000.000 − 230.000
   });
+  it('la variación de las cuentas descuenta lo apartado en metas', () => {
+    const r = resumen(movs, '2026-09');
+    const enCuentas = (hasta: string) => sum(saldos(movs, cuentas, 'ARS', hasta), s => s.saldo);
+    expect(enCuentas('2026-09-30') - enCuentas('2026-08-31')).toBe(r.variacionCuentas);
+    expect(r.variacionCuentas).toBe(482_000); // 770.000 − 300.000 apartados + 12.000 de rendimiento
+  });
   it('el resultado del mes explica cuánto variaron los saldos', () => {
     const r = resumen(movs, '2026-09');
     const antes = patrimonio('2026-08-31');
