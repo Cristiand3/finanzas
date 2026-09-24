@@ -42,16 +42,18 @@ function Fila({ l }: { l: Linea }) {
   const cuentas = cuentasDe(hogar.value!);
   const nombreCuenta = (id?: string) => cuentas.find(c => c.id === id)?.nombre;
   const icon = m.tipo === 'gasto' ? CAT_ICON[m.cat] || '📦'
-    : m.tipo === 'ingreso' ? '💰' : m.tipo === 'transferencia' ? '🔁' : '🎯';
+    : m.tipo === 'ingreso' ? '💰' : m.tipo === 'transferencia' ? '🔁' : m.tipo === 'ajuste' ? '📈' : '🎯';
   const meta = metas.value.find(x => x.id === m.meta)?.nombre;
   const title = m.desc || (
     m.tipo === 'ahorro' ? (m.monto < 0 ? `Retiro de ${meta || 'la meta'}` : meta || 'Ahorro')
-      : m.tipo === 'transferencia' ? 'Movimiento entre cuentas' : m.cat);
+      : m.tipo === 'transferencia' ? 'Movimiento entre cuentas'
+        : m.tipo === 'ajuste' ? (m.monto >= 0 ? 'Rendimiento' : 'Ajuste de saldo') : m.cat);
   const sub = m.tipo === 'transferencia'
     ? `${nombreCuenta(m.cuenta) || '?'} → ${nombreCuenta(m.cuentaDestino) || '?'}`
     : [m.persona, m.tipo === 'gasto' && m.desc ? m.cat : null, m.medio,
       m.tipo !== 'gasto' ? nombreCuenta(m.cuenta) : null].filter(Boolean).join(' · ');
-  const cls = m.tipo === 'gasto' ? 'out' : m.tipo === 'ingreso' ? 'in' : m.tipo === 'transferencia' ? '' : 'save';
+  const cls = m.tipo === 'gasto' ? 'out' : m.tipo === 'ingreso' ? 'in'
+    : m.tipo === 'transferencia' ? '' : m.tipo === 'ajuste' ? (m.monto >= 0 ? 'in' : 'out') : 'save';
   const signo = m.tipo === 'transferencia' ? '' : m.tipo === 'gasto' || l.monto < 0 ? '−' : '+';
   return (
     <button class="mov" onClick={() => openSheet(<MovForm mov={m} />)}>

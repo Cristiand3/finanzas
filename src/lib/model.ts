@@ -7,7 +7,7 @@ export const MONEDAS: Record<Moneda, { simbolo: string; nombre: string }> = {
   BRL: { simbolo: 'R$', nombre: 'Reales' },
 };
 export const MONEDA_IDS = Object.keys(MONEDAS) as Moneda[];
-export type TipoMov = 'gasto' | 'ingreso' | 'ahorro' | 'transferencia';
+export type TipoMov = 'gasto' | 'ingreso' | 'ahorro' | 'transferencia' | 'ajuste';
 export type TipoCuenta = 'efectivo' | 'banco' | 'inversion';
 
 export const TIPOS_CUENTA: Record<TipoCuenta, { nombre: string; icono: string; disponible: boolean }> = {
@@ -101,6 +101,9 @@ export const CUENTAS_INICIALES: Cuenta[] = [
   { id: 'efectivo', nombre: 'Efectivo', tipo: 'efectivo', orden: 0 },
   { id: 'banco', nombre: 'Cuenta bancaria', tipo: 'banco', orden: 1 },
 ];
+/** Nombres típicos de inversiones, para no arrancar de cero. */
+export const SUGERENCIAS_INVERSION = ['Fondo común de inversión', 'Plazo fijo', 'Acciones', 'Cripto', 'Dólares guardados'];
+
 export const cuentasDe = (h: { cuentas?: Cuenta[] }) => (h.cuentas?.length ? h.cuentas : CUENTAS_INICIALES);
 
 export const CAT_ICON: Record<string, string> = {

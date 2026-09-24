@@ -144,6 +144,11 @@ function efectoEnCuentas(m: Mov, hastaMes: string, hoy: string): { cuenta: strin
     return out;
   }
   if (!m.cuenta) return out; // movimientos viejos, sin cuenta asignada
+  if (m.tipo === 'ajuste') { // rendimiento de un fondo o corrección del saldo
+    if (m.fecha > hoy) return out;
+    out.push({ cuenta: m.cuenta, delta: m.monto });
+    return out;
+  }
   if (cuotas > 1) {
     const desde = m.desde || ym(m.fecha);
     const pagadas = Math.min(cuotas, Math.max(0, monthsBetween(desde, hastaMes) + 1));
@@ -172,4 +177,4 @@ export function saldos(movs: Mov[], cuentas: Cuenta[], moneda: Moneda = 'ARS', h
 }
 
 /** Movimientos que todavía no tienen cuenta asignada (cargados antes de esta función). */
-export const sinCuenta = (movs: Mov[]) => movs.filter(m => m.tipo !== 'transferencia' && !m.cuenta).length;
+export const sinCuenta = (movs: Mov[]) => movs.filter(m => m.tipo !== 'transferencia' && m.tipo !== 'ajuste' && !m.cuenta).length;

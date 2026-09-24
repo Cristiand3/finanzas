@@ -1,8 +1,8 @@
 import { useState } from 'preact/hooks';
-import { saldos, sinCuenta } from '../../lib/calc';
+import { saldos, sinCuenta, todayISO } from '../../lib/calc';
 import { fmt, formatMiles, parseAmt } from '../../lib/format';
-import { cuentasDe, MONEDAS, MONEDA_IDS, TIPOS_CUENTA, type Cuenta, type Moneda, type TipoCuenta } from '../../lib/model';
-import { actualizarHogar, hogar, movs, newId, toast } from '../../lib/store';
+import { cuentasDe, MONEDAS, MONEDA_IDS, SUGERENCIAS_INVERSION, TIPOS_CUENTA, type Cuenta, type Moneda, type TipoCuenta } from '../../lib/model';
+import { actualizarHogar, guardar, hogar, miPersona, movs, newId, toast } from '../../lib/store';
 import { Field, MontoInput, Seg, SheetFooter } from '../common';
 import { closeSheet, monedaVista, openSheet } from '../state';
 
@@ -23,7 +23,7 @@ export function CuentasSheet() {
       <h3>Mis cuentas</h3>
       <div class="hero">
         <div class="stat"><div class="l">Disponible</div><div class="v">{fmt(total(disponible), moneda)}</div></div>
-        {invertido.length > 0 && <div class="stat"><div class="l">Invertido</div><div class="v save">{fmt(total(invertido), moneda)}</div></div>}
+        <div class="stat"><div class="l">Invertido</div><div class="v save">{fmt(total(invertido), moneda)}</div></div>
       </div>
       {MONEDA_IDS.length > 1 && <p class="hint">Saldos en {MONEDAS[moneda].nombre.toLowerCase()}. Para ver otra moneda, cambiala en Inicio.</p>}
 
@@ -41,17 +41,23 @@ export function CuentasSheet() {
       {pendientes > 0 && (
         <p class="hint">Hay {pendientes} movimiento{pendientes > 1 ? 's' : ''} cargado{pendientes > 1 ? 's' : ''} antes de usar las cuentas: no afectan estos saldos. Podés abrirlos y elegirles una cuenta.</p>
       )}
-      <button class="btn ghost" onClick={() => openSheet(<CuentaForm />)}>+ Nueva cuenta</button>
+      {invertido.length === 0 && (
+        <p class="hint">¿Tenés plata en un fondo común, un plazo fijo, acciones o cripto? Agregala como inversión: se ve por separado y no suma a lo disponible.</p>
+      )}
+      <div class="btns" style={{ flexWrap: 'wrap' }}>
+        <button class="btn ghost" onClick={() => openSheet(<CuentaForm />)}>+ Cuenta o efectivo</button>
+        <button class="btn ghost" onClick={() => openSheet(<CuentaForm tipoInicial="inversion" />)}>+ Inversión</button>
+      </div>
       <SheetFooter />
     </div>
   );
 }
 
-export function CuentaForm({ cuenta }: { cuenta?: Cuenta }) {
+export function CuentaForm({ cuenta, tipoInicial }: { cuenta?: Cuenta; tipoInicial?: TipoCuenta }) {
   const h = hogar.value!;
   const cuentas = cuentasDe(h);
   const [nombre, setNombre] = useState(cuenta?.nombre || '');
-  const [tipo, setTipo] = useState<TipoCuenta>(cuenta?.tipo || 'banco');
+  const [tipo, setTipo] = useState<TipoCuenta>(cuenta?.tipo || tipoInicial || 'banco');
   const [iniciales, setIniciales] = useState<Partial<Record<Moneda, string>>>(() => {
     const o: Partial<Record<Moneda, string>> = {};
     for (const c of MONEDA_IDS) if (cuenta?.inicial?.[c]) o[c] = formatMiles(String(cuenta.inicial[c]));
@@ -90,6 +96,11 @@ export function CuentaForm({ cuenta }: { cuenta?: Cuenta }) {
       <Field label="Tipo">
         <Seg value={tipo} onChange={setTipo} options={TIPO_IDS.map(t => [t, TIPOS_CUENTA[t].nombre])} />
       </Field>
+      {tipo === 'inversion' && !cuenta && (
+        <div class="btns" style={{ flexWrap: 'wrap' }}>
+          {SUGERENCIAS_INVERSION.map(n => <button type="button" class="btn ghost sm" onClick={() => setNombre(n)}>{n}</button>)}
+        </div>
+      )}
       <p class="hint">{TIPOS_CUENTA[tipo].disponible
         ? 'Suma a lo que tenés disponible para gastar.'
         : 'La plata invertida se muestra aparte y no suma a lo disponible (fondos comunes, plazo fijo, acciones…).'}</p>
@@ -109,9 +120,48 @@ export function CuentaForm({ cuenta }: { cuenta?: Cuenta }) {
       <p class="hint">Es el saldo de partida. Después se suma y se resta solo con lo que vayas cargando.</p>
 
       <button class="btn">Guardar</button>
-      {cuenta && <div class="btns"><button type="button" class="btn danger" onClick={eliminar}>Eliminar cuenta</button></div>}
+      {cuenta && (
+        <div class="btns">
+          <button type="button" class="btn ghost" onClick={() => openSheet(<AjustarSaldo cuenta={cuenta} />)}>Actualizar saldo</button>
+          <button type="button" class="btn danger" onClick={eliminar}>Eliminar cuenta</button>
+        </div>
+      )}
       <div class="btns"><button type="button" class="btn ghost" onClick={() => openSheet(<CuentasSheet />)}>Volver</button></div>
       <div class="btns"><button type="button" class="btn ghost" onClick={closeSheet}>Cerrar</button></div>
+    </form>
+  );
+}
+
+/** Pone el saldo real de una cuenta: sirve para cargar cuánto rindió un fondo o corregir el efectivo. */
+export function AjustarSaldo({ cuenta }: { cuenta: Cuenta }) {
+  const moneda = monedaVista.value;
+  const actual = saldos(movs.value, cuentasDe(hogar.value!), moneda).find(s => s.cuenta.id === cuenta.id)?.saldo || 0;
+  const [txt, setTxt] = useState(formatMiles(String(Math.round(actual))));
+  const nuevo = parseAmt(txt);
+  const diferencia = nuevo - actual;
+
+  const aplicar = (e: Event) => {
+    e.preventDefault();
+    if (!diferencia) { toast('El saldo es el mismo'); return; }
+    guardar('movs', {
+      id: newId(), tipo: 'ajuste', fecha: todayISO(), persona: miPersona.value, desc: diferencia > 0 ? 'Rendimiento' : 'Ajuste de saldo',
+      cat: '', monto: diferencia, moneda, cuenta: cuenta.id,
+    });
+    openSheet(<CuentasSheet />);
+    toast(diferencia > 0 ? `Sumaste ${fmt(diferencia, moneda)} ✓` : `Restaste ${fmt(-diferencia, moneda)} ✓`);
+  };
+
+  return (
+    <form onSubmit={aplicar}>
+      <h3>Actualizar saldo · {cuenta.nombre}</h3>
+      <p class="hint" style={{ marginTop: 0 }}>Poné cuánto tenés hoy en esta cuenta. La diferencia se guarda como rendimiento o ajuste, sin contarse como ingreso ni gasto.</p>
+      <Field label={`Saldo de hoy (${MONEDAS[moneda].simbolo})`}><MontoInput class="amount" value={txt} onValue={setTxt} /></Field>
+      <div class="note">
+        Ahora figura {fmt(actual, moneda)}.{' '}
+        {diferencia ? <b>{diferencia > 0 ? 'Suma' : 'Resta'} {fmt(Math.abs(diferencia), moneda)}.</b> : 'Sin cambios.'}
+      </div>
+      <button class="btn">Guardar</button>
+      <div class="btns"><button type="button" class="btn ghost" onClick={() => openSheet(<CuentaForm cuenta={cuenta} />)}>Volver</button></div>
     </form>
   );
 }

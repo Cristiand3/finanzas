@@ -173,3 +173,15 @@ describe('saldos por cuenta', () => {
     expect(saldos([mov({ monto: 1000 })], cuentas, 'ARS', '2026-09-30').map(s => s.saldo)).toEqual([50_000, 200_000, 0]);
   });
 });
+
+describe('ajuste de saldo (rendimiento de un fondo)', () => {
+  const cuentas = [{ id: 'fci', nombre: 'FCI', tipo: 'inversion' as const, inicial: { ARS: 500_000 } }];
+  it('suma o resta en la cuenta sin ser ingreso ni gasto', () => {
+    const rinde = { id: 'r', tipo: 'ajuste' as const, fecha: '2026-09-30', persona: 'A', desc: '', cat: '', monto: 12_500, moneda: 'ARS' as const, cuenta: 'fci' };
+    expect(saldos([rinde], cuentas, 'ARS', '2026-09-30')[0].saldo).toBe(512_500);
+    const r = resumen([rinde], '2026-09');
+    expect([r.ing, r.gas, r.aho]).toEqual([0, 0, 0]);
+    const baja = { ...rinde, id: 'b', monto: -20_000 };
+    expect(saldos([rinde, baja], cuentas, 'ARS', '2026-09-30')[0].saldo).toBe(492_500);
+  });
+});

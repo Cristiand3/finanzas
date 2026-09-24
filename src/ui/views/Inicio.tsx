@@ -28,7 +28,8 @@ export function Inicio() {
         <h2>Mis saldos</h2>
         <div class="hero">
           <div class="stat"><div class="l">Disponible</div><div class="v">{fmt(disponible, moneda)}</div></div>
-          {invertido !== 0 && <div class="stat"><div class="l">Invertido</div><div class="v save">{fmt(invertido, moneda)}</div></div>}
+          {misCuentas.some(s => !TIPOS_CUENTA[s.cuenta.tipo].disponible) &&
+            <div class="stat"><div class="l">Invertido</div><div class="v save">{fmt(invertido, moneda)}</div></div>}
         </div>
         {misCuentas.map(s => (
           <div class="row"><span>{TIPOS_CUENTA[s.cuenta.tipo].icono} {s.cuenta.nombre}</span><span class={`num ${s.saldo < 0 ? 'out' : ''}`}>{fmt(s.saldo, moneda)}</span></div>
