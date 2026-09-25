@@ -15,7 +15,9 @@ export function Deudas() {
     <>
       <div class="card feature">
         <div class="stat big"><div class="l">Compras en cuotas: te falta pagar</div><div class="v">{fmt(cf.totalRestante, moneda)}</div></div>
-        <div class="hint">Incluye la cuota de {monthName(mes.value).toLowerCase()}</div>
+        <div class="hint">{cf.activas.some(a => a.k >= 1 && a.k <= a.n)
+          ? `Incluye la cuota de ${monthName(mes.value).toLowerCase()}`
+          : 'Todavía no empezaste a pagar ninguna'}</div>
       </div>
 
       {cf.activas.length > 0 ? (

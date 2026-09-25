@@ -216,3 +216,11 @@ export function gruposSinCuenta(movs: Mov[]) {
 export function saldosPorPersona(movs: Mov[], cuentas: Cuenta[], personas: string[], moneda: Moneda = 'ARS', hoy = todayISO()) {
   return personas.map(p => ({ nombre: p, total: sum(saldos(movs, cuentas, moneda, hoy, p), s => s.saldo) }));
 }
+
+/** Último día del mes (para ver cómo cerraron las cuentas ese mes). */
+export const finDeMes = (mes: string) => {
+  const [y, m] = mes.split('-').map(Number);
+  return new Date(y, m, 0).toISOString().slice(0, 10);
+};
+/** Fecha hasta la que hay que calcular saldos si estás mirando `mes`: hoy, o el cierre de ese mes. */
+export const corteDelMes = (mes: string, hoy = todayISO()) => (mes >= ym(hoy) ? hoy : finDeMes(mes));

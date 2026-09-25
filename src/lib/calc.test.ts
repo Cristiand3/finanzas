@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apartadoEnMetas, cuotasFuturas, lineaDelMes, monedasUsadas, monthsBetween, prestamoCalc, progresoMeta, resumen, saldos, saldosPorPersona, shiftMonth, sinCuenta, sum } from './calc';
+import { apartadoEnMetas, corteDelMes, cuotasFuturas, lineaDelMes, monedasUsadas, monthsBetween, prestamoCalc, progresoMeta, resumen, saldos, saldosPorPersona, shiftMonth, sinCuenta, sum } from './calc';
 import { conObjetivos, type Meta, type Mov } from './model';
 
 const mov = (p: Partial<Mov>): Mov => ({
@@ -256,5 +256,21 @@ describe('la parte de cada persona', () => {
     const deCamila = saldos(movs, cuentas, 'ARS', '2026-09-30', 'Camila');
     expect(deCamila.find(s => s.cuenta.id === 'bco')!.saldo).toBe(800_000);
     expect(deCamila.find(s => s.cuenta.id === 'ef')!.saldo).toBe(-50_000);
+  });
+});
+
+describe('saldo del mes que estás mirando', () => {
+  const cuentas = [{ id: 'bco', nombre: 'Banco', tipo: 'banco' as const }];
+  const movs: Mov[] = [
+    mov({ tipo: 'ingreso', monto: 500_000, cuenta: 'bco', fecha: '2026-08-10' }),
+    mov({ monto: 200_000, cuenta: 'bco', fecha: '2026-09-10' }),
+  ];
+  it('en un mes pasado muestra cómo cerró ese mes', () => {
+    expect(corteDelMes('2026-08', '2026-09-25')).toBe('2026-08-31');
+    expect(sum(saldos(movs, cuentas, 'ARS', corteDelMes('2026-08', '2026-09-25')), s => s.saldo)).toBe(500_000);
+  });
+  it('en el mes actual muestra hasta hoy', () => {
+    expect(corteDelMes('2026-09', '2026-09-25')).toBe('2026-09-25');
+    expect(sum(saldos(movs, cuentas, 'ARS', corteDelMes('2026-09', '2026-09-25')), s => s.saldo)).toBe(300_000);
   });
 });

@@ -5,6 +5,7 @@ import {
   setDoc, updateDoc, writeBatch, type Unsubscribe,
 } from 'firebase/firestore';
 import { movsSinCuenta } from './calc';
+import { hogarDemo, metasDemo, modoDemo, movsDemo } from './demo';
 import { auth, db } from './firebase';
 import { conObjetivos, cuentasDe, CUENTAS_INICIALES, DEFAULTS, type Hogar, type Meta, type Mov, type Pmov, type Prestamo } from './model';
 
@@ -70,7 +71,16 @@ function escucharHogar(hid: string) {
   }
 }
 
+if (modoDemo) {
+  user.value = { displayName: 'Cristian', email: 'demo@local' } as never;
+  perfil.value = { hogarId: 'demo', persona: 'Cristian' };
+  hogar.value = hogarDemo();
+  metas.value = metasDemo();
+  movs.value = movsDemo();
+}
+
 onAuthStateChanged(auth, u => {
+  if (modoDemo) return;
   // Las sesiones anónimas de la versión 1 ya no sirven: se cierran para mostrar el ingreso.
   if (u?.isAnonymous) { signOut(auth); return; }
   user.value = u;
@@ -92,7 +102,7 @@ onAuthStateChanged(auth, u => {
 let migrando = false;
 async function ubicarMovimientosViejos() {
   const h = hogar.value;
-  if (migrando || !h || !auth.currentUser) return;
+  if (modoDemo || migrando || !h || !auth.currentUser) return;
   const pendientes = movsSinCuenta(movs.value);
   if (!pendientes.length) return;
   migrando = true;
@@ -131,15 +141,24 @@ const randomCode = () => {
 /** Guarda (crea o reemplaza) un ítem. No espera a la red: funciona sin conexión. */
 type ItemDe = { movs: Mov; metas: Meta; prestamos: Prestamo; pmovs: Pmov };
 export function guardar<C extends Col>(col: C, item: ItemDe[C]) {
+  if (modoDemo) {
+    const lista = data[col].value as { id: string }[];
+    const i = lista.findIndex(x => x.id === item.id);
+    data[col].value = (i >= 0 ? lista.map(x => (x.id === item.id ? item : x)) : [...lista, item]) as never;
+    return;
+  }
   setDoc(doc(db, 'hogares', hid(), col, item.id), { ...item, creadoPor: (item as Mov).creadoPor || uid() }).catch(fail);
 }
 export function borrar(col: Col, id: string) {
+  if (modoDemo) { data[col].value = (data[col].value as { id: string }[]).filter(x => x.id !== id) as never; return; }
   deleteDoc(doc(db, 'hogares', hid(), col, id)).catch(fail);
 }
 export function actualizarHogar(p: Partial<Hogar>) {
+  if (modoDemo) { hogar.value = { ...hogar.value!, ...p }; return; }
   updateDoc(doc(db, 'hogares', hid()), p).catch(fail);
 }
 export function setPersona(persona: string) {
+  if (modoDemo) { perfil.value = { ...perfil.value, persona }; return; }
   setDoc(doc(db, 'usuarios', uid()), { persona }, { merge: true }).catch(fail);
 }
 

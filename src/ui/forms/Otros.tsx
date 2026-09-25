@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 import { prestamoCalc, todayISO } from '../../lib/calc';
 import { fmt, formatMiles, parseAmt } from '../../lib/format';
-import { MONEDAS, MONEDA_IDS, type Hogar, type Meta, type Moneda, type Pmov, type Prestamo, type TipoPmov } from '../../lib/model';
+import { cuentasDe, MONEDAS, MONEDA_IDS, TIPOS_CUENTA, type Hogar, type Meta, type Moneda, type Pmov, type Prestamo, type TipoPmov } from '../../lib/model';
 import { actualizarHogar, borrar, guardar, hogar, miPersona, movs, newId, pmovs, prestamos, setPersona, toast } from '../../lib/store';
 import { Field, MontoInput, Seg, SheetFooter } from '../common';
 import { closeSheet, mes, openSheet } from '../state';
@@ -162,6 +162,8 @@ export function PmovForm({ prestamoId, x }: { prestamoId: string; x?: Pmov }) {
   const [nota, setNota] = useState(x?.nota || '');
   const [comoGasto, setComoGasto] = useState(true);
   const [persona, setPersonaSel] = useState(p.persona !== 'Ambos' && h.personas.includes(p.persona) ? p.persona : miPersona.value);
+  const cuentas = cuentasDe(h);
+  const [cuenta, setCuenta] = useState(cuentas.find(c => c.tipo === 'banco')?.id || cuentas[0]?.id);
 
   const save = (e: Event) => {
     e.preventDefault();
@@ -173,7 +175,7 @@ export function PmovForm({ prestamoId, x }: { prestamoId: string; x?: Pmov }) {
       guardar('movs', {
         id: newId(), tipo: 'gasto', fecha, persona, desc: `Pago ${p.nombre}`,
         cat: h.categorias.includes('Deudas/Cuotas') ? 'Deudas/Cuotas' : h.categorias[0],
-        monto: n, moneda: p.moneda, medio: 'Transferencia', notas: nota.trim() || undefined,
+        monto: n, moneda: p.moneda, medio: 'Transferencia', cuenta, notas: nota.trim() || undefined,
       });
     }
     openSheet(<PrestamoDetalle id={prestamoId} />);
@@ -190,14 +192,23 @@ export function PmovForm({ prestamoId, x }: { prestamoId: string; x?: Pmov }) {
       </div>
       <Field label="Nota"><input class="inp" value={nota} onInput={e => setNota(e.currentTarget.value)} /></Field>
       {!x && tipo === 'Pago' && (
-        <label class="check">
-          <input type="checkbox" checked={comoGasto} onChange={e => setComoGasto(e.currentTarget.checked)} />
-          <span>Contarlo también como gasto de&nbsp;
-            <select class="inp" style={{ width: 'auto', minHeight: 0, padding: '4px 8px', display: 'inline' }} value={persona} onChange={e => setPersonaSel(e.currentTarget.value)}>
-              {h.personas.map(q => <option>{q}</option>)}
-            </select>
-          </span>
-        </label>
+        <>
+          <label class="check">
+            <input type="checkbox" checked={comoGasto} onChange={e => setComoGasto(e.currentTarget.checked)} />
+            <span>Contarlo también como gasto de&nbsp;
+              <select class="inp" style={{ width: 'auto', minHeight: 0, padding: '4px 8px', display: 'inline' }} value={persona} onChange={e => setPersonaSel(e.currentTarget.value)}>
+                {h.personas.map(q => <option>{q}</option>)}
+              </select>
+            </span>
+          </label>
+          {comoGasto && (
+            <Field label="¿De qué cuenta salió el pago?">
+              <select class="inp" value={cuenta} onChange={e => setCuenta(e.currentTarget.value)}>
+                {cuentas.map(c => <option value={c.id}>{TIPOS_CUENTA[c.tipo].icono} {c.nombre}</option>)}
+              </select>
+            </Field>
+          )}
+        </>
       )}
       <p class="hint">Pago: baja el saldo. Interés: lo sube. Ajuste: + suma / − resta. Pago previo: lo que ya habías pagado antes de usar la app (no cuenta como pago del mes).</p>
       <button class="btn">Guardar</button>

@@ -1,4 +1,4 @@
-import { cuotasFuturas, prestamoCalc, progresoMeta, resumen, saldos, sum } from '../../lib/calc';
+import { corteDelMes, cuotasFuturas, prestamoCalc, progresoMeta, resumen, saldos, sum, todayISO, ym } from '../../lib/calc';
 import { fmt, monthName, monthShort, pct } from '../../lib/format';
 import { CAT_ICON, cuentasDe, MONEDAS, MONEDA_IDS, TIPOS_CUENTA } from '../../lib/model';
 import { hogar, metas, movs, pmovs, prestamos } from '../../lib/store';
@@ -17,7 +17,9 @@ export function Inicio() {
   );
   const maxCol = Math.max(1, ...cf.proximos.map(p => p.total));
   const deudas = prestamos.value.map(p => ({ p, c: prestamoCalc(p, pmovs.value, mes.value) })).filter(d => d.p.moneda === moneda);
-  const misCuentas = saldos(movs.value, cuentasDe(h), moneda, undefined, filtroPersona.value);
+  const esMesActual = mes.value === ym(todayISO());
+  const corte = corteDelMes(mes.value);
+  const misCuentas = saldos(movs.value, cuentasDe(h), moneda, corte, filtroPersona.value);
   const disponible = sum(misCuentas.filter(s => TIPOS_CUENTA[s.cuenta.tipo].disponible), s => s.saldo);
   const invertido = sum(misCuentas.filter(s => !TIPOS_CUENTA[s.cuenta.tipo].disponible), s => s.saldo);
   const total = disponible + invertido; // lo apartado en metas se ve en la pestaña Metas
@@ -27,7 +29,7 @@ export function Inicio() {
   return (
     <>
       <div class="card tap" onClick={() => openSheet(<CuentasSheet />)}>
-        <h2>Mis saldos · lo que tenés hoy</h2>
+        <h2>{esMesActual ? 'Mis saldos · lo que tenés hoy' : `Mis saldos · al cierre de ${monthName(mes.value).toLowerCase()}`}</h2>
         <div class="stat big"><div class="v">{fmt(total, moneda)}</div></div>
         {misCuentas.map(s => (
           <div class="row">
