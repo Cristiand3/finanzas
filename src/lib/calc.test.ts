@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apartadoEnMetas, corteDelMes, cuotasFuturas, lineaDelMes, monedasUsadas, monthsBetween, prestamoCalc, progresoMeta, resumen, saldos, saldosPorPersona, shiftMonth, sinCuenta, sum } from './calc';
+import { apartadoEnMetas, corteDelMes, cuotasDelMes, cuotasFuturas, lineaDelMes, monedasUsadas, monthsBetween, prestamoCalc, progresoMeta, resumen, saldos, saldosPorPersona, shiftMonth, sinCuenta, sum } from './calc';
 import { conObjetivos, type Meta, type Mov } from './model';
 
 const mov = (p: Partial<Mov>): Mov => ({
@@ -158,9 +158,18 @@ describe('saldos por cuenta', () => {
     expect(saldoDe([aporte], 'bco')).toBe(120_000);
     expect(saldoDe([aporte, retiro], 'bco')).toBe(150_000);
   });
-  it('una compra en cuotas descuenta solo las cuotas ya pagadas', () => {
+  it('una compra en cuotas no toca la cuenta hasta que se marca la cuota como pagada', () => {
     const tv = mov({ monto: 600_000, cuotas: 6, desde: '2026-08', cuenta: 'bco' });
-    expect(saldoDe([tv], 'bco')).toBe(0); // agosto y septiembre: 2 cuotas de 100.000
+    expect(saldoDe([tv], 'bco')).toBe(200_000); // la deuda existe, pero todavía no salió plata
+    const conUnaPagada = { ...tv, pagadas: ['2026-08'] };
+    expect(saldoDe([conUnaPagada], 'bco')).toBe(100_000);
+    const conDos = { ...tv, pagadas: ['2026-08', '2026-09'] };
+    expect(saldoDe([conDos], 'bco')).toBe(0);
+  });
+  it('un gasto con tarjeta sin cuotas tampoco sale hasta pagarlo', () => {
+    const compra = mov({ monto: 50_000, medio: 'Crédito', cuenta: 'bco', fecha: '2026-09-10' });
+    expect(saldoDe([compra], 'bco')).toBe(200_000);
+    expect(saldoDe([{ ...compra, pagadas: ['2026-09'] }], 'bco')).toBe(150_000);
   });
   it('no cuenta movimientos futuros ni de otra moneda', () => {
     const futuro = mov({ monto: 999_999, cuenta: 'ef', fecha: '2026-12-01' });
@@ -272,5 +281,20 @@ describe('saldo del mes que estás mirando', () => {
   it('en el mes actual muestra hasta hoy', () => {
     expect(corteDelMes('2026-09', '2026-09-25')).toBe('2026-09-25');
     expect(sum(saldos(movs, cuentas, 'ARS', corteDelMes('2026-09', '2026-09-25')), s => s.saldo)).toBe(300_000);
+  });
+});
+
+describe('cuotas del mes, pagadas y pendientes', () => {
+  const tv = mov({ monto: 600_000, cuotas: 6, desde: '2026-09', cuenta: 'bco', desc: 'TV', pagadas: ['2026-09'] });
+  const heladera = mov({ monto: 300_000, cuotas: 3, desde: '2026-09', cuenta: 'bco', desc: 'Heladera' });
+  it('separa lo pagado de lo que falta pagar', () => {
+    const c = cuotasDelMes([tv, heladera], '2026-09');
+    expect(c.pagado).toBe(100_000);
+    expect(c.porPagar).toBe(100_000);
+    expect(c.filas.map(f => [f.mov.desc, f.pagada])).toEqual([['TV', true], ['Heladera', false]]);
+  });
+  it('el mes siguiente arranca sin pagar', () => {
+    expect(cuotasDelMes([tv], '2026-10').porPagar).toBe(100_000);
+    expect(cuotasDelMes([tv], '2026-10').pagado).toBe(0);
   });
 });

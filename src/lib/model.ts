@@ -39,6 +39,7 @@ export interface Mov {
   medio?: string;
   cuotas?: number; // > 1 = compra en cuotas
   desde?: string; // YYYY-MM de la primera cuota
+  pagadas?: string[]; // meses (YYYY-MM) de las cuotas ya pagadas: recién ahí sale de la cuenta
   notas?: string;
   meta?: string; // id de meta (ahorro)
   cuenta?: string; // de dónde sale o a dónde entra la plata

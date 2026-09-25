@@ -1,15 +1,16 @@
-import { cuotasFuturas, prestamoCalc } from '../../lib/calc';
+import { cuotasDelMes, cuotasFuturas, prestamoCalc } from '../../lib/calc';
 import { fmt, monthName, monthShort, pct } from '../../lib/format';
 import { CAT_ICON, MONEDAS } from '../../lib/model';
-import { movs, pmovs, prestamos } from '../../lib/store';
+import { marcarCuota, movs, pmovs, prestamos } from '../../lib/store';
 import { Bar } from '../common';
 import { MovForm } from '../forms/MovForm';
 import { PrestamoDetalle, PrestamoForm } from '../forms/Otros';
-import { mes, monedaVista, openSheet } from '../state';
+import { filtroPersona, mes, monedaVista, openSheet } from '../state';
 
 export function Deudas() {
   const moneda = monedaVista.value;
   const cf = cuotasFuturas(movs.value, mes.value, 6, moneda);
+  const delMes = cuotasDelMes(movs.value, mes.value, moneda, filtroPersona.value);
   const maxCol = Math.max(1, ...cf.proximos.map(p => p.total));
   return (
     <>
@@ -19,6 +20,28 @@ export function Deudas() {
           ? `Incluye la cuota de ${monthName(mes.value).toLowerCase()}`
           : 'Todavía no empezaste a pagar ninguna'}</div>
       </div>
+
+      {delMes.filas.length > 0 && (
+        <div class="card">
+          <h2>Cuotas de {monthName(mes.value).toLowerCase()}</h2>
+          <div class="hero">
+            <div class="stat"><div class="l">Ya pagaste</div><div class="v in">{fmt(delMes.pagado, moneda)}</div></div>
+            <div class="stat"><div class="l">Te falta pagar</div><div class="v out">{fmt(delMes.porPagar, moneda)}</div></div>
+          </div>
+          {delMes.filas.map(f => (
+            <div class="row">
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div class="t">{CAT_ICON[f.mov.cat] || '•'} {f.mov.desc || f.mov.cat}</div>
+                <div class="s">{f.cuota ? `Cuota ${f.cuota.k} de ${f.cuota.n}` : 'Con tarjeta'} · {fmt(f.monto, moneda)} · {f.mov.persona}</div>
+              </div>
+              <button class={`btn sm ${f.pagada ? 'ghost' : ''}`} onClick={() => marcarCuota(f.mov, mes.value, !f.pagada)}>
+                {f.pagada ? 'Pagada ✓' : 'Marcar pagada'}
+              </button>
+            </div>
+          ))}
+          <p class="hint" style={{ marginBottom: 0 }}>Lo comprado con tarjeta sale de tu cuenta recién cuando marcás la cuota como pagada.</p>
+        </div>
+      )}
 
       {cf.activas.length > 0 ? (
         <>

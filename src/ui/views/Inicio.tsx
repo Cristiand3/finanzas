@@ -1,4 +1,4 @@
-import { corteDelMes, cuotasFuturas, prestamoCalc, progresoMeta, resumen, saldos, sum, todayISO, ym } from '../../lib/calc';
+import { corteDelMes, cuotasDelMes, cuotasFuturas, prestamoCalc, progresoMeta, resumen, saldos, shiftMonth, sum, todayISO, ym } from '../../lib/calc';
 import { fmt, monthName, monthShort, pct } from '../../lib/format';
 import { CAT_ICON, cuentasDe, MONEDAS, MONEDA_IDS, TIPOS_CUENTA } from '../../lib/model';
 import { hogar, metas, movs, pmovs, prestamos } from '../../lib/store';
@@ -24,7 +24,10 @@ export function Inicio() {
   const invertido = sum(misCuentas.filter(s => !TIPOS_CUENTA[s.cuenta.tipo].disponible), s => s.saldo);
   const total = disponible + invertido; // lo apartado en metas se ve en la pestaña Metas
   const otras = MONEDA_IDS.filter(c => c !== moneda && resumen(movs.value, mes.value, filtroPersona.value, c).lineas.length > 0);
-  const variacion = r.variacionCuentas;
+  // La variación real de las cuentas: cómo cerraron el mes anterior contra este.
+  const enCuentas = (m: string) => sum(saldos(movs.value, cuentasDe(h), moneda, corteDelMes(m), filtroPersona.value), x => x.saldo);
+  const variacion = enCuentas(mes.value) - enCuentas(shiftMonth(mes.value, -1));
+  const tarjeta = cuotasDelMes(movs.value, mes.value, moneda, filtroPersona.value);
 
   return (
     <>
@@ -59,12 +62,16 @@ export function Inicio() {
           <div class="stat"><div class="l">Apartado en metas</div><div class="v save">{fmt(r.aho, moneda)}</div></div>
           <div class="stat"><div class="l">% del ingreso gastado</div><div class="v">{pct(r.pctGasto)}</div></div>
         </div>
-        {r.enCuotas > 0 && <p class="hint">Incluye {fmt(r.enCuotas, moneda)} en cuotas.</p>}
+        {tarjeta.filas.length > 0 && (
+          <p class="hint">Con tarjeta este mes: {fmt(tarjeta.pagado + tarjeta.porPagar, moneda)}
+            {tarjeta.porPagar > 0 ? ` · te falta pagar ${fmt(tarjeta.porPagar, moneda)}` : ' · todo pagado'}.</p>
+        )}
         {r.ajustes !== 0 && <p class="hint">Rendimientos de inversiones: {fmt(r.ajustes, moneda)}.</p>}
         {filtroPersona.value === 'Todos' ? (
           <p class="hint" style={{ marginBottom: 0 }}>
-            Con esto tus cuentas {variacion >= 0 ? 'crecieron' : 'bajaron'} <b>{fmt(Math.abs(variacion), moneda)}</b> en el mes
-            {r.aho !== 0 ? `, ya descontando ${fmt(r.aho, moneda)} que apartaste en metas` : ''}.
+            Tus cuentas {variacion >= 0 ? 'crecieron' : 'bajaron'} <b>{fmt(Math.abs(variacion), moneda)}</b> en el mes
+            {r.aho !== 0 ? `, ya descontando ${fmt(r.aho, moneda)} que apartaste en metas` : ''}
+            {tarjeta.porPagar > 0 ? `. Lo de la tarjeta sin pagar (${fmt(tarjeta.porPagar, moneda)}) todavía no salió de la cuenta` : ''}.
           </p>
         ) : (
           <p class="hint" style={{ marginBottom: 0 }}>Estás viendo solo lo de {filtroPersona.value}. En Todos se suma lo de todo el hogar.</p>

@@ -235,6 +235,13 @@ export async function eliminarCuenta() {
   await deleteUser(u); // puede pedir volver a iniciar sesión (auth/requires-recent-login)
 }
 
+/** Marca (o desmarca) como pagada la cuota de un mes: recién ahí sale de la cuenta. */
+export function marcarCuota(m: Mov, mes: string, pagada: boolean) {
+  const actuales = m.pagadas || [];
+  const pagadas = pagada ? [...new Set([...actuales, mes])] : actuales.filter(k => k !== mes);
+  guardar('movs', { ...m, pagadas });
+}
+
 export const cerrarSesion = () => signOut(auth);
 
 /** Importa un respaldo (de esta versión o de la versión 1) agregándolo al hogar. */

@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { lineasDelMes, ym, type Linea } from '../../lib/calc';
+import { cuotaPagada, esACredito, lineasDelMes, ym, type Linea } from '../../lib/calc';
 import { dayName, fmt } from '../../lib/format';
 import { CAT_ICON, cuentasDe, TIPOS_CUENTA } from '../../lib/model';
 import { hogar, metas, movs } from '../../lib/store';
@@ -62,6 +62,7 @@ function Fila({ l }: { l: Linea }) {
       <div class="r">
         <div class={`num ${cls}`}>{signo}{fmt(Math.abs(l.monto), m.moneda)}</div>
         {l.cuota && <span class="pill">Cuota {l.cuota.k}/{l.cuota.n}</span>}
+        {esACredito(m) && <span class="pill" style={{ background: 'transparent' }}>{cuotaPagada(m, mes.value) ? '✓ pagada' : 'sin pagar'}</span>}
         {m.tipo === 'gasto' && m.cuenta && <span class="s">{TIPOS_CUENTA[cuentas.find(c => c.id === m.cuenta)?.tipo || 'banco'].icono}</span>}
       </div>
     </button>

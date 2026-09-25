@@ -147,6 +147,14 @@ export function prestamoCalc(p: Prestamo, pmovs: Pmov[], mes: string) {
  * Movimiento de plata que produce un movimiento sobre una cuenta.
  * Un gasto en cuotas descuenta la cuota de cada mes, no todo junto.
  */
+export const esACredito = (m: Mov) => m.tipo === 'gasto' && ((m.cuotas || 1) > 1 || m.medio === 'Crédito');
+/** Mes al que corresponde cada cuota de una compra. */
+export const mesesDeCuotas = (m: Mov) => {
+  const desde = m.desde || ym(m.fecha);
+  return Array.from({ length: m.cuotas || 1 }, (_, i) => shiftMonth(desde, i));
+};
+export const cuotaPagada = (m: Mov, mes: string) => !!m.pagadas?.includes(mes);
+
 function efectoEnCuentas(m: Mov, hastaMes: string, hoy: string): { cuenta: string; delta: number }[] {
   const cuotas = m.tipo === 'gasto' ? m.cuotas || 1 : 1;
   const out: { cuenta: string; delta: number }[] = [];
@@ -162,9 +170,9 @@ function efectoEnCuentas(m: Mov, hastaMes: string, hoy: string): { cuenta: strin
     out.push({ cuenta: m.cuenta, delta: m.monto });
     return out;
   }
-  if (cuotas > 1) {
-    const desde = m.desde || ym(m.fecha);
-    const pagadas = Math.min(cuotas, Math.max(0, monthsBetween(desde, hastaMes) + 1));
+  // Lo comprado con tarjeta sale de la cuenta recién cuando se marca la cuota como pagada.
+  if (esACredito(m)) {
+    const pagadas = mesesDeCuotas(m).filter(k => k <= hastaMes && cuotaPagada(m, k)).length;
     if (pagadas > 0) out.push({ cuenta: m.cuenta, delta: -(m.monto / cuotas) * pagadas });
     return out;
   }
@@ -224,3 +232,17 @@ export const finDeMes = (mes: string) => {
 };
 /** Fecha hasta la que hay que calcular saldos si estás mirando `mes`: hoy, o el cierre de ese mes. */
 export const corteDelMes = (mes: string, hoy = todayISO()) => (mes >= ym(hoy) ? hoy : finDeMes(mes));
+
+/** Cuotas de tarjeta del mes, separando las pagadas de las que faltan pagar. */
+export function cuotasDelMes(movs: Mov[], mes: string, moneda: Moneda = 'ARS', persona = 'Todos') {
+  const filas = movs
+    .filter(m => esACredito(m) && m.moneda === moneda && (persona === 'Todos' || m.persona === persona))
+    .map(m => ({ mov: m, linea: lineaDelMes(m, mes) }))
+    .filter(x => x.linea)
+    .map(x => ({ mov: x.mov, monto: x.linea!.monto, cuota: x.linea!.cuota, pagada: cuotaPagada(x.mov, mes) }));
+  return {
+    filas,
+    pagado: sum(filas.filter(f => f.pagada), f => f.monto),
+    porPagar: sum(filas.filter(f => !f.pagada), f => f.monto),
+  };
+}
