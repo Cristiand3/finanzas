@@ -250,3 +250,17 @@ export function cuotasDelMes(movs: Mov[], mes: string, moneda: Moneda = 'ARS', p
     porPagar: sum(filas.filter(f => !f.pagada), f => f.monto),
   };
 }
+
+/** Cuotas de tarjeta sin pagar hasta un mes dado, de la más vieja a la más nueva. */
+export function cuotasPendientes(movs: Mov[], hastaMes: string, moneda: Moneda = 'ARS', persona = 'Todos') {
+  const out: { mov: Mov; mes: string; monto: number; k: number; n: number }[] = [];
+  for (const m of movs) {
+    if (!esACredito(m) || m.moneda !== moneda) continue;
+    if (persona !== 'Todos' && m.persona !== persona) continue;
+    const n = m.cuotas || 1;
+    mesesDeCuotas(m).forEach((mes, i) => {
+      if (mes <= hastaMes && !cuotaPagada(m, mes)) out.push({ mov: m, mes, monto: m.monto / n, k: i + 1, n });
+    });
+  }
+  return out.sort((a, b) => a.mes.localeCompare(b.mes));
+}

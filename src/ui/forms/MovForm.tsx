@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { shiftMonth, todayISO, ym } from '../../lib/calc';
-import { fmt, formatMiles, monthName, parseAmt } from '../../lib/format';
+import { cuotasPendientes, prestamoCalc, shiftMonth, todayISO, ym } from '../../lib/calc';
+import { fmt, formatMiles, monthName, monthShort, parseAmt } from '../../lib/format';
 import { CAT_ICON, cuentasDe, MONEDAS, MONEDA_IDS, TIPOS_CUENTA, type Moneda, type Mov, type TipoMov } from '../../lib/model';
-import { borrar, guardar, hogar, metas, miPersona, newId, toast } from '../../lib/store';
+import { borrar, guardar, hogar, marcarCuota, metas, miPersona, movs as movsSig, newId, pmovs, prestamos, toast } from '../../lib/store';
 import { Field, MontoInput, Seg } from '../common';
 import { closeSheet, mes } from '../state';
 
@@ -33,6 +33,25 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
   const cuotas = m.tipo === 'gasto' ? m.cuotas || 1 : 1;
   const desdeDefault = (medio?: string) => (medio === 'Crédito' ? shiftMonth(ym(m.fecha), 1) : ym(m.fecha));
 
+  // Al elegir la categoría de deudas, se ofrecen las cuotas y préstamos que hay para pagar.
+  const esPagoDeDeuda = m.tipo === 'gasto' && /deuda|cuota/i.test(m.cat);
+  const pendientes = esPagoDeDeuda ? cuotasPendientes(movsSig.value, ym(m.fecha), moneda) : [];
+  const deudasActivas = esPagoDeDeuda
+    ? prestamos.value.filter(p => p.moneda === moneda).map(p => ({ p, c: prestamoCalc(p, pmovs.value, ym(m.fecha)) })).filter(x => x.c.saldo > 0)
+    : [];
+  const [pagando, setPagando] = useState('otro');
+  const elegirDeuda = (v: string) => {
+    setPagando(v);
+    const [clase, id, mesCuota] = v.split('|');
+    if (clase === 'cuota') {
+      const item = pendientes.find(x => x.mov.id === id && x.mes === mesCuota);
+      if (item) { setMontoTxt(formatMiles(String(Math.round(item.monto)))); set({ desc: `Cuota ${item.k}/${item.n} · ${item.mov.desc || item.mov.cat}` }); }
+    } else if (clase === 'prestamo') {
+      const item = deudasActivas.find(x => x.p.id === id);
+      if (item) { setMontoTxt(formatMiles(String(Math.round(item.c.sugerido || item.p.cuota || 0)))); set({ desc: `Pago ${item.p.nombre}` }); }
+    }
+  };
+
   const setTipo = (tipo: TipoMov) => set({
     tipo,
     cat: tipo === 'ingreso' ? h.fuentesIngreso[0] : tipo === 'gasto' ? h.categorias[0] : m.cat,
@@ -57,6 +76,19 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
       monto: m.tipo === 'ahorro' ? (retiro ? -Math.abs(monto) : Math.abs(monto)) : Math.abs(monto),
       moneda, notas: m.notas?.trim() || undefined,
     };
+    const [clase, id, mesCuota] = pagando.split('|');
+    if (esPagoDeDeuda && clase === 'cuota') {
+      const item = pendientes.find(x => x.mov.id === id && x.mes === mesCuota);
+      if (item) {
+        marcarCuota(item.mov, item.mes, true); // la cuota ya estaba cargada: solo se marca pagada
+        closeSheet();
+        toast(`Cuota ${item.k}/${item.n} marcada como pagada ✓`);
+        return;
+      }
+    }
+    if (esPagoDeDeuda && clase === 'prestamo') {
+      guardar('pmovs', { id: newId(), prestamoId: id, fecha: out.fecha, tipo: 'Pago', monto: out.monto, cuotas: 1, nota: '' });
+    }
     if (m.tipo === 'gasto') {
       out.medio = m.medio;
       if (cuotas > 1) { out.cuotas = cuotas; out.desde = m.desde || desdeDefault(m.medio); }
@@ -112,6 +144,25 @@ export function MovForm({ mov, preset }: { mov?: Mov; preset?: Partial<Mov> }) {
               <button type="button" class={c === m.cat ? 'on' : ''} onClick={() => set({ cat: c })}><b>{CAT_ICON[c] || '•'}</b>{c}</button>
             ))}
           </div>
+          {esPagoDeDeuda && (pendientes.length > 0 || deudasActivas.length > 0) && (
+            <>
+              <Field label="¿Qué estás pagando?">
+                <select class="inp" value={pagando} onChange={e => elegirDeuda(e.currentTarget.value)}>
+                  <option value="otro">Otro gasto de deudas</option>
+                  {pendientes.map(x => (
+                    <option value={`cuota|${x.mov.id}|${x.mes}`}>
+                      {x.mov.desc || x.mov.cat} · cuota {x.k}/{x.n} de {monthShort(x.mes)} · {fmt(x.monto, moneda)}
+                    </option>
+                  ))}
+                  {deudasActivas.map(x => (
+                    <option value={`prestamo|${x.p.id}`}>{x.p.nombre} · saldo {fmt(x.c.saldo, x.p.moneda)}</option>
+                  ))}
+                </select>
+              </Field>
+              {pagando.startsWith('cuota') && <p class="hint">Se marca esa cuota como pagada y sale de la cuenta de esa compra. No se carga un gasto nuevo.</p>}
+              {pagando.startsWith('prestamo') && <p class="hint">Se descuenta del saldo del préstamo y se carga como gasto de la cuenta que elijas.</p>}
+            </>
+          )}
           <Field label="Descripción"><input class="inp" value={m.desc} onInput={e => set({ desc: e.currentTarget.value })} placeholder="Ej: súper, nafta, farmacia" /></Field>
           {selectorCuenta('¿De dónde salió la plata?', m.cuenta, v => set({ cuenta: v }))}
           <div class="grid2">
