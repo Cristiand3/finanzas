@@ -60,15 +60,19 @@ export function monedasUsadas(movs: Mov[], mes?: string, persona = 'Todos'): Mon
 export function resumen(movs: Mov[], mes: string, persona = 'Todos', moneda: Moneda = 'ARS') {
   const ls = lineasDelMes(movs, mes, persona, moneda);
   const of = (t: string) => ls.filter(l => l.mov.tipo === t);
+  // Lo de la tarjeta cuenta como gasto del mes recién cuando se marca como pagado:
+  // hasta entonces la plata no salió de ningún lado.
+  const gastos = of('gasto').filter(l => !esACredito(l.mov) || cuotaPagada(l.mov, mes));
+  const tarjetaPendiente = sum(of('gasto').filter(l => esACredito(l.mov) && !cuotaPagada(l.mov, mes)), l => l.monto);
   const ing = sum(of('ingreso'), l => l.monto);
-  const gas = sum(of('gasto'), l => l.monto);
+  const gas = sum(gastos, l => l.monto);
   const aho = sum(of('ahorro'), l => l.monto);
   const porCat = new Map<string, number>();
-  for (const l of of('gasto')) porCat.set(l.mov.cat, (porCat.get(l.mov.cat) || 0) + l.monto);
+  for (const l of gastos) porCat.set(l.mov.cat, (porCat.get(l.mov.cat) || 0) + l.monto);
   const ajustes = sum(of('ajuste'), l => l.monto); // rendimientos de inversiones
   return {
-    moneda, ing, gas, aho, ajustes,
-    enCuotas: sum(of('gasto').filter(l => l.cuota), l => l.monto),
+    moneda, ing, gas, aho, ajustes, tarjetaPendiente,
+    enCuotas: sum(gastos.filter(l => l.cuota), l => l.monto),
     // Resultado del mes: lo que entró menos lo que se fue de verdad. Apartar plata en una
     // meta no es un gasto, así que no resta: por eso esto explica cuánto variaron los saldos.
     resultado: ing - gas,
@@ -76,7 +80,7 @@ export function resumen(movs: Mov[], mes: string, persona = 'Todos', moneda: Mon
     variacionCuentas: ing - gas - aho + ajustes,
     variacionSaldos: ing - gas + ajustes, // incluyendo lo apartado en metas
     pctGasto: ing ? gas / ing : NaN,
-    cantidad: of('gasto').length,
+    cantidad: gastos.length,
     porCat: [...porCat].map(([cat, v]) => ({ cat, v })).sort((a, b) => b.v - a.v),
     lineas: ls,
   };

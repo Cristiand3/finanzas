@@ -23,10 +23,16 @@ describe('cuotas', () => {
     expect(lineaDelMes(tv, '2027-03')).toMatchObject({ cuota: { k: 6, n: 6 } });
     expect(lineaDelMes(tv, '2027-04')).toBeNull();
   });
-  it('cuenta solo la cuota del mes en el resumen', () => {
-    const r = resumen([tv, mov({ monto: 50_000 })], '2026-10');
-    expect(r.gas).toBe(100_000);
-    expect(r.enCuotas).toBe(100_000);
+  it('la cuota entra en el resumen recién cuando se marca como pagada', () => {
+    const comun = mov({ monto: 50_000, fecha: '2026-10-03' });
+    const sinPagar = resumen([tv, comun], '2026-10');
+    expect(sinPagar.gas).toBe(50_000); // solo el gasto común
+    expect(sinPagar.tarjetaPendiente).toBe(100_000);
+    expect(sinPagar.resultado).toBe(-50_000);
+    const pagada = resumen([{ ...tv, pagadas: ['2026-10'] }, comun], '2026-10');
+    expect(pagada.gas).toBe(150_000);
+    expect(pagada.enCuotas).toBe(100_000);
+    expect(pagada.tarjetaPendiente).toBe(0);
   });
   it('proyecta lo que falta pagar', () => {
     const f = cuotasFuturas([tv], '2026-12'); // cuota 3 en diciembre
@@ -296,5 +302,24 @@ describe('cuotas del mes, pagadas y pendientes', () => {
   it('el mes siguiente arranca sin pagar', () => {
     expect(cuotasDelMes([tv], '2026-10').porPagar).toBe(100_000);
     expect(cuotasDelMes([tv], '2026-10').pagado).toBe(0);
+  });
+});
+
+describe('el resultado del mes coincide con lo que se movió en las cuentas', () => {
+  const cuentas = [{ id: 'bco', nombre: 'Banco', tipo: 'banco' as const }];
+  const base: Mov[] = [
+    mov({ tipo: 'ingreso', monto: 500_000, cuenta: 'bco', fecha: '2026-10-05' }),
+    mov({ monto: 600_000, cuotas: 6, desde: '2026-10', medio: 'Crédito', cuenta: 'bco', fecha: '2026-10-02' }),
+  ];
+  const enCuentas = (movs: Mov[]) => sum(saldos(movs, cuentas, 'ARS', '2026-10-31'), s => s.saldo);
+
+  it('sin pagar la cuota, el resultado es solo el ingreso', () => {
+    expect(resumen(base, '2026-10').resultado).toBe(500_000);
+    expect(enCuentas(base)).toBe(500_000);
+  });
+  it('al marcarla pagada, resta en los dos lados igual', () => {
+    const pagada = [base[0], { ...base[1], pagadas: ['2026-10'] }];
+    expect(resumen(pagada, '2026-10').resultado).toBe(400_000);
+    expect(enCuentas(pagada)).toBe(400_000);
   });
 });

@@ -17,7 +17,7 @@ export function Inicio() {
   );
   const maxCol = Math.max(1, ...cf.proximos.map(p => p.total));
   const deudas = prestamos.value.map(p => ({ p, c: prestamoCalc(p, pmovs.value, mes.value) })).filter(d => d.p.moneda === moneda);
-  const esMesActual = mes.value === ym(todayISO());
+  const mesPasado = mes.value < ym(todayISO()); // en meses futuros mostramos el saldo de hoy
   const corte = corteDelMes(mes.value);
   const misCuentas = saldos(movs.value, cuentasDe(h), moneda, corte, filtroPersona.value);
   const disponible = sum(misCuentas.filter(s => TIPOS_CUENTA[s.cuenta.tipo].disponible), s => s.saldo);
@@ -32,7 +32,7 @@ export function Inicio() {
   return (
     <>
       <div class="card tap" onClick={() => openSheet(<CuentasSheet />)}>
-        <h2>{esMesActual ? 'Mis saldos · lo que tenés hoy' : `Mis saldos · al cierre de ${monthName(mes.value).toLowerCase()}`}</h2>
+        <h2>{mesPasado ? `Mis saldos · al cierre de ${monthName(mes.value).toLowerCase()}` : 'Mis saldos · lo que tenés hoy'}</h2>
         <div class="stat big"><div class="v">{fmt(total, moneda)}</div></div>
         {misCuentas.map(s => (
           <div class="row">
@@ -62,16 +62,16 @@ export function Inicio() {
           <div class="stat"><div class="l">Apartado en metas</div><div class="v save">{fmt(r.aho, moneda)}</div></div>
           <div class="stat"><div class="l">% del ingreso gastado</div><div class="v">{pct(r.pctGasto)}</div></div>
         </div>
-        {tarjeta.filas.length > 0 && (
-          <p class="hint">Con tarjeta este mes: {fmt(tarjeta.pagado + tarjeta.porPagar, moneda)}
-            {tarjeta.porPagar > 0 ? ` · te falta pagar ${fmt(tarjeta.porPagar, moneda)}` : ' · todo pagado'}.</p>
+        {r.tarjetaPendiente > 0 && (
+          <p class="hint">Te falta pagar {fmt(r.tarjetaPendiente, moneda)} de tarjeta: todavía no cuenta como gasto ni salió de tu cuenta.
+            Cuando lo pagues, marcalo en <b>Deudas</b>.</p>
         )}
+        {tarjeta.pagado > 0 && <p class="hint">De los gastos, {fmt(tarjeta.pagado, moneda)} son cuotas de tarjeta que ya pagaste.</p>}
         {r.ajustes !== 0 && <p class="hint">Rendimientos de inversiones: {fmt(r.ajustes, moneda)}.</p>}
         {filtroPersona.value === 'Todos' ? (
           <p class="hint" style={{ marginBottom: 0 }}>
             Tus cuentas {variacion >= 0 ? 'crecieron' : 'bajaron'} <b>{fmt(Math.abs(variacion), moneda)}</b> en el mes
-            {r.aho !== 0 ? `, ya descontando ${fmt(r.aho, moneda)} que apartaste en metas` : ''}
-            {tarjeta.porPagar > 0 ? `. Lo de la tarjeta sin pagar (${fmt(tarjeta.porPagar, moneda)}) todavía no salió de la cuenta` : ''}.
+            {r.aho !== 0 ? `, ya descontando ${fmt(r.aho, moneda)} que apartaste en metas` : ''}.
           </p>
         ) : (
           <p class="hint" style={{ marginBottom: 0 }}>Estás viendo solo lo de {filtroPersona.value}. En Todos se suma lo de todo el hogar.</p>
